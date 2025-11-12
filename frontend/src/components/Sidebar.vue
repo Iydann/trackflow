@@ -16,10 +16,11 @@
       </Button>
     </nav>
 
-    <!-- Dev-only helper to seed demo data quickly during development -->
-    <div v-if="isDev" class="mt-3 flex flex-col gap-1">
-      <button @click="seedDummy" class="text-xs text-gray-500 hover:underline text-left">Seed demo Process items</button>
-      <button @click="seedHistoryDummy" class="text-xs text-gray-500 hover:underline text-left">Seed demo History items</button>
+    <!-- Dev-cuma buat seed data, ntar dihapus -->
+    <div v-if="isDev && !collapsed" class="mt-3 flex flex-col gap-1">
+      <button @click="clearAllData" class="text-xs text-red-500 hover:underline text-left font-semibold">Clear All Data</button>
+      <button @click="seedDummy" class="text-xs text-gray-500 hover:underline text-left">Test add demo Process items</button>
+      <button @click="seedHistoryDummy" class="text-xs text-gray-500 hover:underline text-left">Test add demo History items</button>
     </div>
 
   <ScrollArea class="flex-1 overflow-auto mt-3">
@@ -28,13 +29,13 @@
 
         <div class="mt-0">
           <div v-for="item in processItems" :key="item.id" class="relative group">
-            <div class="w-full transition-colors rounded-md" :class="isActive(item.path) ? 'bg-white font-bold' : 'group-hover:bg-white/60'">
+            <div class="w-full transition-all duration-150 rounded-md" :class="isActive(item.path) ? 'bg-white font-bold' : 'group-hover:bg-white/60 group-hover:translate-x-1'">
               <Button
                 variant="ghost"
                 @click="navigate(item.path)"
-                :class="[ 'flex items-center gap-3 w-full text-left rounded-md', collapsed ? 'py-3 justify-center' : 'px-3 py-2' ]"
+                :class="[ 'flex items-center gap-3 w-full text-left rounded-md transition-all duration-150', collapsed ? 'py-3 justify-center' : 'px-3 py-2' ]"
               >
-                <component is="BarChart3Icon" class="w-5 h-5 text-gray-600" />
+                <component is="BarChart3Icon" class="w-5 h-5 text-gray-600 transition-transform duration-150 group-hover:scale-110" />
                 <span v-if="!collapsed" class="flex-1 text-gray-700">{{ item.name }}</span>
               </Button>
             </div>
@@ -132,9 +133,18 @@ const loadProcessItems = () => {
   }
 }
 
+const clearAllData = () => {
+  if (confirm('Clear semua data Process & History?')) {
+    localStorage.removeItem('trackflow_processes')
+    localStorage.removeItem('trackflow_history')
+    loadProcessItems()
+    loadHistoryItems()
+  }
+}
+
 const seedDummy = () => {
-  // Create 40 demo items to test scrolling behavior
-  const items = Array.from({ length: 40 }, (_, i) => ({ id: i + 1, name: `Demo Process ${i + 1}`, path: `/process/${i + 1}` }))
+  // Create 5 demo items
+  const items = Array.from({ length: 5 }, (_, i) => ({ id: i + 1, name: `Demo Process ${i + 1}`, path: `/process/${i + 1}` }))
   try {
     localStorage.setItem('trackflow_processes', JSON.stringify(items))
   } catch (e) {
@@ -144,7 +154,8 @@ const seedDummy = () => {
 }
 
 const seedHistoryDummy = () => {
-  const items = Array.from({ length: 25 }, (_, i) => ({ id: i + 1, name: `History Item ${i + 1}`, path: `/history/${i + 1}` }))
+  // Create 10 demo history items
+  const items = Array.from({ length: 10 }, (_, i) => ({ id: i + 1, name: `History Item ${i + 1}`, path: `/history/${i + 1}` }))
   try {
     localStorage.setItem('trackflow_history', JSON.stringify(items))
   } catch (e) {

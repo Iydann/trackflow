@@ -16,7 +16,7 @@
               <li>Resolution: 1280x720 (720p)</li>
               <li>Formats: .mp4</li>
               <li>Stable camera, minimal shake, clear lighting</li>
-              <li>Max file size: 2GB</li>
+              <li>Max file size: .. GB</li>
             </ul>
           </div>
 

@@ -1,18 +1,9 @@
-/* Tailwind entry + minimal global tokens/helpers
-   This file intentionally keeps only the Tailwind directives, global design tokens
-   (CSS variables) and a small set of helper classes that are still referenced by
-   components (upload preview, canvas sizing, app layout wrappers). Remaining
-   component-specific styles were migrated into their templates as Tailwind classes.
-*/
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Basic box-sizing reset (harmless with Tailwind preflight) */
 *,*::before,*::after{box-sizing:border-box}
 
-/* Global tokens used by components and color system */
 :root{
   --image-placeholder: rgba(227,227,227,1);
   --background: 0 0% 100%;
@@ -22,19 +13,14 @@
 
 .dark{--background:224 71% 4%; --foreground:213 31% 91%}
 
-/* Apply token-driven background/foreground to the page */
 body{background-color:hsl(var(--background)); color:hsl(var(--foreground)); font-family:Inter,system-ui,Avenir,Helvetica,Arial,sans-serif}
 
-/* App layout helpers (kept for legacy wrapper classNames used across pages) */
 .app-main{display:flex;align-items:flex-start}
 .main-content{flex:1;padding:48px 56px}
 .main-inner{max-width:1200px;margin:0 auto}
 
-/* Small set of helpers still referenced by components */
 .visually-hidden{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(1px,1px,1px,1px);white-space:nowrap}
 .video-thumb{max-height:640px;border-radius:14px;object-fit:cover}
 .define-canvas-wrap{max-width:100%;max-height:640px;display:flex;align-items:center;justify-content:center;overflow:hidden}
 .define-canvas{max-width:100%;max-height:640px;display:block}
 .video-actions{width:100%;display:flex;justify-content:space-between;align-items:center;margin-top:8px}
-
-/* Keep this file small — other styles should be migrated into components or Tailwind theme */

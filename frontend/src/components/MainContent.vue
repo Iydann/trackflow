@@ -5,7 +5,7 @@
         <div class="flex flex-col items-center gap-6">
           <h1 class="text-5xl font-extrabold text-center">Vehicle Detection, Congestion Timeline Maker</h1>
           <p class="text-center text-lg text-gray-700 max-w-2xl">
-            Upload 720p CCTV video in mp4 format, the system will detect objects with YOLO and LLM to compile a timeline table, the timeline will be visualized with a graph
+            Upload 720p CCTV video in mp4 format, the system will detect objects to generate a timeline table, the timeline will be visualized with a graph
           </p>
 
           <div class="flex gap-4 mt-4">
