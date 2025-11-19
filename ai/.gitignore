@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+
+# Models
+*.pt
+*.pth
+*.weights
+*.onnx
+models/*.pt
+!models/.gitkeep
+
+# Outputs
+outputs/
+results/
+runs/
+*.mp4
+*.avi
+
+# Environment
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log
+logs/

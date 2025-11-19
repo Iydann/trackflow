@@ -49,6 +49,8 @@ const points = ref([])
 const routeState = route.state || {}
 let previewDataUrl = routeState.previewDataUrl
 let videoUrl = routeState.videoUrl
+let videoFile = routeState.videoFile
+let fileKey = null
 
 if (!previewDataUrl && !videoUrl) {
   try {
@@ -57,6 +59,10 @@ if (!previewDataUrl && !videoUrl) {
       const parsed = JSON.parse(raw)
       previewDataUrl = parsed.previewDataUrl
       videoUrl = parsed.videoUrl
+      fileKey = parsed.fileKey
+      if (fileKey && window[fileKey]) {
+        videoFile = window[fileKey]
+      }
     }
   } catch (e) {
     // ignore
@@ -169,7 +175,7 @@ const confirm = () => {
 
   const processObj = {
     id: processId,
-    name: videoUrl ? videoUrl.split('/').pop() || 'Uploaded Video' : 'Uploaded Video',
+    name: videoFile?.name || 'Uploaded Video',
     timestamp: new Date().toLocaleString(),
     status: 'processing',
     path: `/process/${processId}`,
@@ -188,13 +194,31 @@ const confirm = () => {
     const existing = JSON.parse(localStorage.getItem('trackflow_processes') || '[]')
     existing.unshift(processObj)
     localStorage.setItem('trackflow_processes', JSON.stringify(existing))
+    
+    // Trigger storage event for sidebar to update
+    window.dispatchEvent(new StorageEvent('storage', {
+      key: 'trackflow_processes',
+      newValue: JSON.stringify(existing)
+    }))
   } catch {
     // ignore
   }
 
+  // Store video file and line for processing
+  if (videoFile) {
+    const processKey = `process_${processId}`
+    window[processKey] = videoFile
+    try {
+      sessionStorage.setItem('trackflow_process_key', processKey)
+      sessionStorage.setItem('trackflow_process_line', JSON.stringify(processObj.line))
+    } catch (e) {
+      // ignore
+    }
+  }
+
   router.push({
     path: `/process/${processId}`,
-    state: processObj
+    state: { ...processObj, videoFile: videoFile }
   })
 
   if (videoUrl) {

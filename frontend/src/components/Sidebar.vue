@@ -127,8 +127,15 @@ const navigate = (path) => {
 const loadProcessItems = () => {
   try {
     const raw = localStorage.getItem('trackflow_processes') || '[]'
-    processItems.value = JSON.parse(raw)
-  } catch {
+    console.log('Raw processes data:', raw)
+    const allProcesses = JSON.parse(raw)
+    console.log('All processes:', allProcesses)
+    // Only show items that are still processing (not completed)
+    // Include items without status or with status = 'processing'
+    processItems.value = allProcesses.filter(p => !p.status || p.status === 'processing')
+    console.log('Filtered process items:', processItems.value.length, processItems.value)
+  } catch (e) {
+    console.error('Error loading process items:', e)
     processItems.value = []
   }
 }
@@ -143,32 +150,54 @@ const clearAllData = () => {
 }
 
 const seedDummy = () => {
-  // Create 5 demo items
-  const items = Array.from({ length: 5 }, (_, i) => ({ id: i + 1, name: `Demo Process ${i + 1}`, path: `/process/${i + 1}` }))
+  // Create 3 demo items with processing status
+  const items = Array.from({ length: 3 }, (_, i) => ({ 
+    id: `demo-${Date.now()}-${i}`,
+    name: `Demo Process ${i + 1}`, 
+    path: `/process/demo-${i + 1}`,
+    status: 'processing',
+    timestamp: new Date().toLocaleString(),
+    startTime: new Date().toISOString()
+  }))
   try {
-    localStorage.setItem('trackflow_processes', JSON.stringify(items))
+    const existing = JSON.parse(localStorage.getItem('trackflow_processes') || '[]')
+    const combined = [...items, ...existing]
+    localStorage.setItem('trackflow_processes', JSON.stringify(combined))
+    console.log('Seeded process items:', combined)
   } catch (e) {
-    // ignore
+    console.error('Error seeding:', e)
   }
   loadProcessItems()
 }
 
 const seedHistoryDummy = () => {
-  // Create 10 demo history items
-  const items = Array.from({ length: 10 }, (_, i) => ({ id: i + 1, name: `History Item ${i + 1}`, path: `/history/${i + 1}` }))
+  // Create 5 demo history items with completed status
+  const items = Array.from({ length: 5 }, (_, i) => ({ 
+    id: `history-${Date.now()}-${i}`,
+    name: `History Item ${i + 1}`, 
+    path: `/process/history-${i + 1}`,
+    status: 'completed',
+    timestamp: new Date().toLocaleString(),
+    startTime: new Date().toISOString(),
+    completedAt: new Date().toISOString()
+  }))
   try {
-    localStorage.setItem('trackflow_history', JSON.stringify(items))
+    const existing = JSON.parse(localStorage.getItem('trackflow_history') || '[]')
+    const combined = [...items, ...existing]
+    localStorage.setItem('trackflow_history', JSON.stringify(combined))
+    console.log('Seeded history items:', combined)
   } catch (e) {
-    // ignore
+    console.error('Error seeding history:', e)
   }
   loadHistoryItems()
 }
 
 const handleStorageChange = (e) => {
-  if (e.key === 'trackflow_processes') {
+  console.log('Storage changed:', e.key)
+  if (e.key === 'trackflow_processes' || !e.key) {
     loadProcessItems()
   }
-  if (e.key === 'trackflow_history') {
+  if (e.key === 'trackflow_history' || !e.key) {
     loadHistoryItems()
   }
 }
@@ -176,8 +205,11 @@ const handleStorageChange = (e) => {
 const loadHistoryItems = () => {
   try {
     const raw = localStorage.getItem('trackflow_history') || '[]'
+    console.log('Raw history data:', raw)
     historyItems.value = JSON.parse(raw)
-  } catch {
+    console.log('Loaded history items:', historyItems.value.length, historyItems.value)
+  } catch (e) {
+    console.error('Error loading history items:', e)
     historyItems.value = []
   }
 }
@@ -248,10 +280,21 @@ const deleteHistory = (h) => {
 }
 
 onMounted(() => {
+  console.log('Sidebar mounted, loading items...')
   loadProcessItems()
   loadHistoryItems()
   window.addEventListener('storage', handleStorageChange)
   document.addEventListener('click', onDocumentClick)
+  
+  // Refresh every 2 seconds to catch updates
+  const refreshInterval = setInterval(() => {
+    loadProcessItems()
+    loadHistoryItems()
+  }, 2000)
+  
+  onUnmounted(() => {
+    clearInterval(refreshInterval)
+  })
 })
 
 onUnmounted(() => {

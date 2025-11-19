@@ -78,6 +78,7 @@ const fileInputRef = ref(null)
 const videoUrl = ref(null)
 const previewDataUrl = ref(null)
 const isDragActive = ref(false)
+const currentVideoFile = ref(null)
 
 const openFilePicker = () => {
   fileInputRef.value?.click()
@@ -86,6 +87,7 @@ const openFilePicker = () => {
 const handleFile = (file) => {
   if (!file) return
 
+  currentVideoFile.value = file
   const url = URL.createObjectURL(file)
   videoUrl.value = url
 
@@ -141,9 +143,17 @@ const removeVideo = () => {
 const startDefine = () => {
   // Persist state to sessionStorage as a fallback for the define page
   try {
+    // Store file reference with unique key
+    const fileKey = `video_${Date.now()}`
+    window[fileKey] = currentVideoFile.value
+    
     sessionStorage.setItem(
       'trackflow_define_state',
-      JSON.stringify({ videoUrl: videoUrl.value, previewDataUrl: previewDataUrl.value })
+      JSON.stringify({ 
+        videoUrl: videoUrl.value, 
+        previewDataUrl: previewDataUrl.value,
+        fileKey: fileKey
+      })
     )
   } catch (e) {
     // ignore
@@ -151,7 +161,11 @@ const startDefine = () => {
 
   router.push({
     path: '/upload/define',
-    state: { videoUrl: videoUrl.value, previewDataUrl: previewDataUrl.value }
+    state: { 
+      videoUrl: videoUrl.value, 
+      previewDataUrl: previewDataUrl.value,
+      videoFile: currentVideoFile.value
+    }
   })
 }
 
