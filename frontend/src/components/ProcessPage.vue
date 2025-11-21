@@ -144,6 +144,7 @@ import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import NavigationHeader from './NavigationHeader.vue'
 import Sidebar from './Sidebar.vue'
+import { api } from '../lib/api.js'
 
 const route = useRoute()
 const uploadProgress = ref(0)
@@ -155,54 +156,71 @@ const processingStatus = ref('Initializing...')
 const errorMessage = ref(null)
 const apiResponse = ref(null)
 
-const API_BASE_URL = 'http://localhost:8000'
-
 const getId = () => route.params?.id
 
-const loadProcess = (id) => {
-  process.value = null
-  if (route.state && route.state.id) {
-    process.value = route.state
-    return
-  }
+const loadProcess = async (id) => {
   if (!id) return
   try {
-    // Try to load from processes first
-    const raw = localStorage.getItem('trackflow_processes') || '[]'
-    const arr = JSON.parse(raw)
-    let found = arr.find((p) => String(p.id) === String(id))
-    
-    // If not in processes, try history
-    if (!found) {
-      const historyRaw = localStorage.getItem('trackflow_history') || '[]'
-      const historyArr = JSON.parse(historyRaw)
-      found = historyArr.find((p) => String(p.id) === String(id))
+    const data = await api.getProcess(id)
+    process.value = {
+      id: data.id,
+      name: data.name,
+      status: data.status,
+      previewUrl: null,
+      resolution: data.results?.video_info?.resolution || '-',
+      duration: data.results?.video_info?.duration_seconds || 0,
+      startTime: data.created_at
     }
     
-    if (found) {
-      process.value = found
+    if (data.status === 'completed' && data.results) {
+      uploadProgress.value = 100
+      detectProgress.value = 100
+      totalVehicles.value = data.total_vehicles || 0
       
-      // If already completed, set progress to 100 and show results
-      if (found.status === 'completed' && found.results) {
-        uploadProgress.value = 100
-        detectProgress.value = 100
-        totalVehicles.value = found.results.unique_vehicles || found.results.total_vehicles || 0
-        
-        const typeCounts = found.results.vehicle_type_counts || found.results.vehicles_by_class || {}
-        vehiclesByClass.value = {
-          car: typeCounts.Mobil || typeCounts.car || 0,
-          motorcycle: typeCounts.Motor || typeCounts.motorcycle || 0,
-          truck: typeCounts.Truk || typeCounts.truck || 0,
-          bus: typeCounts.Bus || typeCounts.bus || 0
-        }
-        
-        processingStatus.value = `Completed! Found ${totalVehicles.value} vehicles.`
-        apiResponse.value = { statistics: found.results }
+      const typeCounts = data.results.vehicle_type_counts || {}
+      vehiclesByClass.value = {
+        car: typeCounts.Mobil || typeCounts.car || 0,
+        motorcycle: typeCounts.Motor || typeCounts.motorcycle || 0,
+        truck: typeCounts.Truk || typeCounts.truck || 0,
+        bus: typeCounts.Bus || typeCounts.bus || 0
       }
+      
+      processingStatus.value = `Completed! Found ${totalVehicles.value} vehicles.`
+      apiResponse.value = { statistics: data.results }
+    } else if (data.status === 'processing') {
+      pollProcessStatus(id)
     }
-  } catch {
-    // ignore
+  } catch (e) {
+    console.error('Error loading process:', e)
   }
+}
+
+const pollProcessStatus = async (id) => {
+  const interval = setInterval(async () => {
+    try {
+      const data = await api.getProcess(id)
+      
+      if (data.status === 'completed') {
+        clearInterval(interval)
+        loadProcess(id)
+      } else if (data.status === 'failed') {
+        clearInterval(interval)
+        errorMessage.value = data.error_message || 'Processing failed'
+        processingStatus.value = 'Failed'
+      }
+      
+      // Simulate progress
+      if (uploadProgress.value < 100) {
+        uploadProgress.value = Math.min(100, uploadProgress.value + 5)
+      } else if (detectProgress.value < 95) {
+        detectProgress.value = Math.min(95, detectProgress.value + 3)
+      }
+    } catch (e) {
+      console.error('Polling error:', e)
+    }
+  }, 2000)
+  
+  onUnmounted(() => clearInterval(interval))
 }
 
 const formatDuration = (s) => {
@@ -213,208 +231,24 @@ const formatDuration = (s) => {
 }
 
 const moveToHistory = (processItem) => {
-  try {
-    // Add to history
-    const historyRaw = localStorage.getItem('trackflow_history') || '[]'
-    const historyArr = JSON.parse(historyRaw)
-    
-    // Check if already in history
-    const existsInHistory = historyArr.some(h => h.id === processItem.id)
-    if (!existsInHistory) {
-      historyArr.unshift(processItem)
-      localStorage.setItem('trackflow_history', JSON.stringify(historyArr))
-      console.log('Moved to history:', processItem.id)
-    }
-    
-    // Remove from processes
-    const processRaw = localStorage.getItem('trackflow_processes') || '[]'
-    const processArr = JSON.parse(processRaw)
-    const filtered = processArr.filter(p => p.id !== processItem.id)
-    localStorage.setItem('trackflow_processes', JSON.stringify(filtered))
-    console.log('Removed from processes:', processItem.id)
-    
-    // Trigger storage event for sidebar to update
-    window.dispatchEvent(new StorageEvent('storage', {
-      key: 'trackflow_processes',
-      newValue: JSON.stringify(filtered)
-    }))
-    window.dispatchEvent(new StorageEvent('storage', {
-      key: 'trackflow_history',
-      newValue: JSON.stringify(historyArr)
-    }))
-  } catch (e) {
-    console.error('Failed to move to history:', e)
-  }
+  // Backend handles this automatically
 }
 
 const processVideoWithAI = async (videoFile, processId) => {
-  try {
-    processingStatus.value = 'Uploading video to AI server...'
-    uploadProgress.value = 0
-    
-    // Create form data
-    const formData = new FormData()
-    formData.append('file', videoFile)
-    formData.append('mode', 'track')
-    formData.append('confidence', '0.25')
-    formData.append('save_video', 'true')
-    formData.append('draw_trails', 'true')
-
-    // Simulate upload progress during actual upload
-    const uploadInterval = setInterval(() => {
-      if (uploadProgress.value < 90) {
-        uploadProgress.value += 3
-      }
-    }, 300)
-
-    console.log('Uploading video to AI backend...')
-
-    // Upload and process video
-    const response = await fetch(`${API_BASE_URL}/process`, {
-      method: 'POST',
-      body: formData
-    })
-
-    clearInterval(uploadInterval)
-    uploadProgress.value = 100
-
-    console.log('Response status:', response.status)
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }))
-      throw new Error(errorData.detail || `API error: ${response.status}`)
-    }
-
-    const result = await response.json()
-    console.log('API Response:', result)
-    
-    // Store full response for debugging
-    apiResponse.value = result
-    
-    processingStatus.value = 'AI detection completed! Processing results...'
-    
-    // Start detection progress animation
-    detectProgress.value = 0
-    const detectInterval = setInterval(() => {
-      if (detectProgress.value < 100) {
-        detectProgress.value += 5
-      } else {
-        clearInterval(detectInterval)
-      }
-    }, 50)
-
-    // Wait a bit for animation
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    detectProgress.value = 100
-
-    console.log('Statistics:', result.statistics)
-
-    // Update results immediately from API response
-    if (result.statistics) {
-      // Backend returns 'unique_vehicles' not 'total_vehicles'
-      totalVehicles.value = result.statistics.unique_vehicles || result.statistics.total_vehicles || 0
-      
-      // Backend returns 'vehicle_type_counts' not 'vehicles_by_class'
-      const typeCounts = result.statistics.vehicle_type_counts || result.statistics.vehicles_by_class || {}
-      
-      // Map vehicle type names to lowercase keys
-      vehiclesByClass.value = {
-        car: typeCounts.Mobil || typeCounts.car || 0,
-        motorcycle: typeCounts.Motor || typeCounts.motorcycle || 0,
-        truck: typeCounts.Truk || typeCounts.truck || 0,
-        bus: typeCounts.Bus || typeCounts.bus || 0
-      }
-      
-      processingStatus.value = `Detection completed! Found ${totalVehicles.value} vehicles.`
-      
-      console.log('Total vehicles detected:', totalVehicles.value)
-      console.log('Vehicles by class:', vehiclesByClass.value)
-      console.log('Raw statistics:', result.statistics)
-      
-      // Update localStorage with results
-      try {
-        const raw = localStorage.getItem('trackflow_processes') || '[]'
-        const arr = JSON.parse(raw)
-        const idx = arr.findIndex((p) => p.id === processId)
-        if (idx >= 0) {
-          arr[idx].status = 'completed'
-          arr[idx].results = result.statistics
-          arr[idx].output_video = result.output_video_path
-          arr[idx].completedAt = new Date().toISOString()
-          localStorage.setItem('trackflow_processes', JSON.stringify(arr))
-          console.log('Updated localStorage with results')
-          
-          // Move to history after completion
-          moveToHistory(arr[idx])
-        }
-      } catch (e) {
-        console.error('Failed to update localStorage:', e)
-      }
-    } else {
-      console.warn('No statistics in response')
-      errorMessage.value = 'Detection completed but no statistics returned'
-    }
-
-    return result
-  } catch (error) {
-    console.error('AI Processing error:', error)
-    errorMessage.value = `Processing failed: ${error.message}`
-    processingStatus.value = 'Error occurred'
-    return null
-  }
+  // Backend now handles AI processing automatically
+  processingStatus.value = 'Processing on server...'
+  uploadProgress.value = 10
+  
+  // Poll for status updates
+  pollProcessStatus(processId)
 }
 
 onMounted(() => {
-  loadProcess(getId())
+  const processId = getId()
+  loadProcess(processId)
 
-  // react to param changes
   watch(() => route.params.id, (newId) => {
     loadProcess(newId)
   })
-
-  // Get video file from route state or window storage
-  let videoFile = route.state?.videoFile
-  
-  if (!videoFile) {
-    try {
-      const processKey = sessionStorage.getItem('trackflow_process_key')
-      if (processKey && window[processKey]) {
-        videoFile = window[processKey]
-      }
-    } catch (e) {
-      // ignore
-    }
-  }
-
-  // Only start processing if not already completed
-  const isCompleted = process.value?.status === 'completed'
-  
-  if (isCompleted) {
-    console.log('Process already completed, skipping AI processing')
-  } else if (videoFile) {
-    const processId = getId()
-    processVideoWithAI(videoFile, processId)
-  } else {
-    // Fallback to fake progress if no file found
-    errorMessage.value = 'No video file found. Using simulation mode.'
-    
-    let upTimer = setInterval(() => {
-      uploadProgress.value = Math.min(100, uploadProgress.value + 2)
-    }, 150)
-
-    let detTimer = setInterval(() => {
-      if (uploadProgress.value < 100) return
-      detectProgress.value = Math.min(100, detectProgress.value + 1)
-    }, 200)
-
-    setTimeout(() => {
-      clearInterval(upTimer)
-      clearInterval(detTimer)
-    }, 15000)
-  }
-})
-
-onUnmounted(() => {
-  // cleanup handled by onMounted return
 })
 </script>

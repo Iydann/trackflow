@@ -100,6 +100,7 @@ import { useRouter, useRoute } from 'vue-router'
 import Button from './Button.vue'
 import ScrollArea from './ScrollArea.vue'
 import { HomeIcon, UploadIcon, UserIcon, BarChart3Icon, ChevronLeftIcon } from 'lucide-vue-next'
+import { api } from '../lib/api.js'
 
 const router = useRouter()
 const route = useRoute()
@@ -124,90 +125,52 @@ const navigate = (path) => {
   router.push(path)
 }
 
-const loadProcessItems = () => {
+const loadProcessItems = async () => {
   try {
-    const raw = localStorage.getItem('trackflow_processes') || '[]'
-    console.log('Raw processes data:', raw)
-    const allProcesses = JSON.parse(raw)
-    console.log('All processes:', allProcesses)
-    // Only show items that are still processing (not completed)
-    // Include items without status or with status = 'processing'
-    processItems.value = allProcesses.filter(p => !p.status || p.status === 'processing')
-    console.log('Filtered process items:', processItems.value.length, processItems.value)
+    const processes = await api.getProcesses()
+    processItems.value = processes
+      .filter(p => p.status === 'processing')
+      .map(p => ({
+        id: p.id,
+        name: p.name,
+        path: `/process/${p.id}`,
+        status: p.status
+      }))
   } catch (e) {
     console.error('Error loading process items:', e)
     processItems.value = []
   }
 }
 
-const clearAllData = () => {
+const clearAllData = async () => {
   if (confirm('Clear semua data Process & History?')) {
-    localStorage.removeItem('trackflow_processes')
-    localStorage.removeItem('trackflow_history')
+    // For dev mode, just reload
     loadProcessItems()
     loadHistoryItems()
   }
 }
 
 const seedDummy = () => {
-  // Create 3 demo items with processing status
-  const items = Array.from({ length: 3 }, (_, i) => ({ 
-    id: `demo-${Date.now()}-${i}`,
-    name: `Demo Process ${i + 1}`, 
-    path: `/process/demo-${i + 1}`,
-    status: 'processing',
-    timestamp: new Date().toLocaleString(),
-    startTime: new Date().toISOString()
-  }))
-  try {
-    const existing = JSON.parse(localStorage.getItem('trackflow_processes') || '[]')
-    const combined = [...items, ...existing]
-    localStorage.setItem('trackflow_processes', JSON.stringify(combined))
-    console.log('Seeded process items:', combined)
-  } catch (e) {
-    console.error('Error seeding:', e)
-  }
-  loadProcessItems()
+  alert('Use the Upload page to create real processes')
 }
 
 const seedHistoryDummy = () => {
-  // Create 5 demo history items with completed status
-  const items = Array.from({ length: 5 }, (_, i) => ({ 
-    id: `history-${Date.now()}-${i}`,
-    name: `History Item ${i + 1}`, 
-    path: `/process/history-${i + 1}`,
-    status: 'completed',
-    timestamp: new Date().toLocaleString(),
-    startTime: new Date().toISOString(),
-    completedAt: new Date().toISOString()
-  }))
-  try {
-    const existing = JSON.parse(localStorage.getItem('trackflow_history') || '[]')
-    const combined = [...items, ...existing]
-    localStorage.setItem('trackflow_history', JSON.stringify(combined))
-    console.log('Seeded history items:', combined)
-  } catch (e) {
-    console.error('Error seeding history:', e)
-  }
-  loadHistoryItems()
+  alert('History will be created automatically when processes complete')
 }
 
 const handleStorageChange = (e) => {
-  console.log('Storage changed:', e.key)
-  if (e.key === 'trackflow_processes' || !e.key) {
-    loadProcessItems()
-  }
-  if (e.key === 'trackflow_history' || !e.key) {
-    loadHistoryItems()
-  }
+  // Not needed anymore with API
 }
 
-const loadHistoryItems = () => {
+const loadHistoryItems = async () => {
   try {
-    const raw = localStorage.getItem('trackflow_history') || '[]'
-    console.log('Raw history data:', raw)
-    historyItems.value = JSON.parse(raw)
-    console.log('Loaded history items:', historyItems.value.length, historyItems.value)
+    const history = await api.getHistory()
+    historyItems.value = history.map(h => ({
+      id: h.id,
+      name: h.name,
+      path: `/process/${h.process_id}`,
+      totalVehicles: h.total_vehicles
+    }))
   } catch (e) {
     console.error('Error loading history items:', e)
     historyItems.value = []
@@ -264,14 +227,11 @@ const downloadHistory = (h) => {
   closeHistoryMenu()
 }
 
-const deleteHistory = (h) => {
+const deleteHistory = async (h) => {
   const ok = confirm(`Hapus history "${h.name}" ?`)
   if (!ok) return
   try {
-    const raw = localStorage.getItem('trackflow_history') || '[]'
-    const arr = JSON.parse(raw)
-    const filtered = arr.filter((x) => String(x.id) !== String(h.id))
-    localStorage.setItem('trackflow_history', JSON.stringify(filtered))
+    await api.deleteHistory(h.id)
     loadHistoryItems()
   } catch (err) {
     console.error(err)
@@ -283,7 +243,6 @@ onMounted(() => {
   console.log('Sidebar mounted, loading items...')
   loadProcessItems()
   loadHistoryItems()
-  window.addEventListener('storage', handleStorageChange)
   document.addEventListener('click', onDocumentClick)
   
   // Refresh every 2 seconds to catch updates
@@ -298,7 +257,6 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  window.removeEventListener('storage', handleStorageChange)
   document.removeEventListener('click', onDocumentClick)
 })
 </script>

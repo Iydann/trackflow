@@ -38,6 +38,7 @@ import { useRouter, useRoute } from 'vue-router'
 import Button from './Button.vue'
 import NavigationHeader from './NavigationHeader.vue'
 import Sidebar from './Sidebar.vue'
+import { api } from '../lib/api.js'
 
 const router = useRouter()
 const route = useRoute()
@@ -164,85 +165,26 @@ const reset = () => {
   redraw()
 }
 
-const confirm = () => {
+const confirm = async () => {
   if (points.value.length < 2) {
     alert('Please select two points first.')
     return
   }
 
-  const processId = `process-${Date.now()}`
-  const startTime = new Date().toISOString()
-
-  const processObj = {
-    id: processId,
-    name: videoFile?.name || 'Uploaded Video',
-    timestamp: new Date().toLocaleString(),
-    status: 'processing',
-    path: `/process/${processId}`,
-    videoUrl: videoUrl || null,
-    previewUrl: previewDataUrl || null,
-    duration: 0,
-    resolution: '',
-    line: {
-      start: [points.value[0].x, points.value[0].y],
-      end: [points.value[1].x, points.value[1].y]
-    },
-    startTime
+  if (!videoFile) {
+    alert('No video file found.')
+    return
   }
 
   try {
-    const existing = JSON.parse(localStorage.getItem('trackflow_processes') || '[]')
-    existing.unshift(processObj)
-    localStorage.setItem('trackflow_processes', JSON.stringify(existing))
+    // Upload video to backend
+    const result = await api.uploadAndProcess(videoFile)
     
-    // Trigger storage event for sidebar to update
-    window.dispatchEvent(new StorageEvent('storage', {
-      key: 'trackflow_processes',
-      newValue: JSON.stringify(existing)
-    }))
-  } catch {
-    // ignore
-  }
-
-  // Store video file and line for processing
-  if (videoFile) {
-    const processKey = `process_${processId}`
-    window[processKey] = videoFile
-    try {
-      sessionStorage.setItem('trackflow_process_key', processKey)
-      sessionStorage.setItem('trackflow_process_line', JSON.stringify(processObj.line))
-    } catch (e) {
-      // ignore
-    }
-  }
-
-  router.push({
-    path: `/process/${processId}`,
-    state: { ...processObj, videoFile: videoFile }
-  })
-
-  if (videoUrl) {
-    const v = document.createElement('video')
-    v.src = videoUrl
-    v.addEventListener('loadedmetadata', () => {
-      try {
-        const raw = localStorage.getItem('trackflow_processes') || '[]'
-        const arr = JSON.parse(raw)
-        const idx = arr.findIndex((p) => p.id === processId)
-        if (idx >= 0) {
-          arr[idx].duration = Math.floor(v.duration)
-          arr[idx].resolution = `${v.videoWidth}x${v.videoHeight}`
-          localStorage.setItem('trackflow_processes', JSON.stringify(arr))
-        }
-      } catch {
-        // ignore
-      }
-    })
-    try {
-      v.load()
-    } catch {
-      // ignore
-    }
+    // Navigate to process page
+    router.push(`/process/${result.processId}`)
+  } catch (error) {
+    console.error('Upload error:', error)
+    alert('Failed to upload video: ' + error.message)
   }
 }
 
