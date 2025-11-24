@@ -33,15 +33,19 @@
 </template>
 
 <script setup>
-import { ref, inject, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import Button from './Button.vue'
+import { api } from '../lib/api.js'
 
 const router = useRouter()
-const auth = inject('auth')
-const user = ref(auth?.user || null)
 const showMenu = ref(false)
 const userBtnRef = ref(null)
+
+const user = computed(() => {
+  const userData = localStorage.getItem('trackflow_user')
+  return userData ? JSON.parse(userData) : null
+})
 
 const handleDocumentClick = (e) => {
   const btn = userBtnRef.value
@@ -68,9 +72,10 @@ const openSignUp = () => {
 }
 
 const logout = () => {
-  auth?.logout()
-  user.value = null
+  api.logout()
+  showMenu.value = false
   router.push('/')
+  window.location.reload()
 }
 
 const toggleMenu = (e) => {
@@ -81,10 +86,4 @@ const toggleMenu = (e) => {
 const goToProfile = () => { showMenu.value = false; router.push('/profile') }
 const goToSettings = () => { showMenu.value = false; router.push('/profile?tab=settings') }
 const openHelp = () => { showMenu.value = false; window.open('https://example.com/help', '_blank') }
-
-if (auth) {
-  auth.onUserChange = (newUser) => {
-    user.value = newUser
-  }
-}
 </script>

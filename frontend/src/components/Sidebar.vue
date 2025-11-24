@@ -239,6 +239,8 @@ const deleteHistory = async (h) => {
   closeHistoryMenu()
 }
 
+let refreshInterval = null
+
 onMounted(() => {
   console.log('Sidebar mounted, loading items...')
   loadProcessItems()
@@ -246,17 +248,16 @@ onMounted(() => {
   document.addEventListener('click', onDocumentClick)
   
   // Refresh every 2 seconds to catch updates
-  const refreshInterval = setInterval(() => {
+  refreshInterval = setInterval(() => {
     loadProcessItems()
     loadHistoryItems()
   }, 2000)
-  
-  onUnmounted(() => {
-    clearInterval(refreshInterval)
-  })
 })
 
 onUnmounted(() => {
+  if (refreshInterval) {
+    clearInterval(refreshInterval)
+  }
   document.removeEventListener('click', onDocumentClick)
 })
 </script>
