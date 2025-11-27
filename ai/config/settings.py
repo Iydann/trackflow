@@ -21,7 +21,7 @@ OUTPUTS_DIR.mkdir(exist_ok=True)
 CONFIG_DIR.mkdir(exist_ok=True)
 
 # Model settings
-MODEL_NAME = os.getenv("MODEL_NAME", "yolov8m.pt")
+MODEL_NAME = os.getenv("MODEL_NAME", "yolov8n.pt")
 MODEL_PATH = MODELS_DIR / MODEL_NAME
 CONFIDENCE_THRESHOLD = float(os.getenv("CONFIDENCE_THRESHOLD", "0.35"))
 IOU_THRESHOLD = float(os.getenv("IOU_THRESHOLD", "0.5"))

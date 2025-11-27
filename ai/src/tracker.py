@@ -50,6 +50,8 @@ class VehicleTracker:
         self.track_history = defaultdict(list)  # Track ID -> list of centers
         self.track_classes = {}  # Track ID -> class ID
         self.unique_vehicles = set()  # Set of unique track IDs
+        self.crossed_vehicles = set()  # Track IDs that crossed the line
+        self.counting_line = None  # ((x1,y1), (x2,y2))
         
         print(f"🎯 Initializing TrackFlow Vehicle Tracker...")
         print(f"   Model: {model_name}")
@@ -74,10 +76,46 @@ class VehicleTracker:
             print(f"❌ Error loading model: {e}")
             raise
     
+    def _check_line_crossing(self, point1, point2, line_start, line_end):
+        """
+        Check if a line segment (point1 -> point2) crosses the counting line
+        Uses line intersection algorithm
+        
+        Args:
+            point1: (x, y) start point of vehicle movement
+            point2: (x, y) end point of vehicle movement
+            line_start: (x, y) start of counting line
+            line_end: (x, y) end of counting line
+            
+        Returns:
+            True if lines intersect, False otherwise
+        """
+        x1, y1 = point1
+        x2, y2 = point2
+        x3, y3 = line_start
+        x4, y4 = line_end
+        
+        # Calculate denominators
+        denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
+        
+        if abs(denom) < 1e-10:
+            return False  # Lines are parallel
+        
+        # Calculate intersection point parameters
+        t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom
+        u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denom
+        
+        # Check if intersection is within both line segments
+        if 0 <= t <= 1 and 0 <= u <= 1:
+            return True
+        
+        return False
+    
     def track_video(
         self,
         video_path: str,
         output_path: Optional[str] = None,
+        counting_line: Optional[tuple] = None,
         show_progress: bool = True,
         draw_trails: bool = True,
         max_trail_length: int = 30,
@@ -85,11 +123,12 @@ class VehicleTracker:
         imgsz: int = 640
     ) -> Dict[str, Any]:
         """
-        Track vehicles in video with unique IDs
+        Track vehicles in video with unique IDs and optional line crossing count
         
         Args:
             video_path: Path to input video
             output_path: Path to save output video
+            counting_line: Optional tuple ((x1,y1), (x2,y2)) for line crossing detection
             show_progress: Show progress bar
             draw_trails: Draw vehicle movement trails
             max_trail_length: Maximum trail points to display
@@ -105,6 +144,11 @@ class VehicleTracker:
         self.track_history.clear()
         self.track_classes.clear()
         self.unique_vehicles.clear()
+        self.crossed_vehicles.clear()
+        self.counting_line = counting_line
+        
+        if counting_line:
+            print(f"📏 Counting line enabled: {counting_line[0]} -> {counting_line[1]}")
         
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
@@ -135,6 +179,10 @@ class VehicleTracker:
         # Tracking results
         frame_tracks = []
         vehicle_counts = defaultdict(int)
+        
+        # Per-minute tracking for time series
+        vehicles_per_minute = defaultdict(set)  # minute -> set of vehicle IDs
+        crossed_per_minute = defaultdict(set)   # minute -> set of crossed vehicle IDs
         
         frame_idx = 0
         
@@ -179,11 +227,32 @@ class VehicleTracker:
                             
                             track_id = track_ids[idx] if track_ids is not None else None
                             
+                            # Calculate current minute
+                            current_minute = int(frame_idx / (fps * 60))
+                            
                             # Update tracking history
                             if track_id is not None:
-                                self.track_history[track_id].append((center_x, center_y))
+                                # Get previous position for line crossing check
+                                prev_pos = None
+                                if len(self.track_history[track_id]) > 0:
+                                    prev_pos = self.track_history[track_id][-1]
+                                
+                                current_pos = (center_x, center_y)
+                                self.track_history[track_id].append(current_pos)
                                 self.track_classes[track_id] = cls_id
                                 self.unique_vehicles.add(track_id)
+                                
+                                # Track vehicle for this minute
+                                vehicles_per_minute[current_minute].add(track_id)
+                                
+                                # Check line crossing
+                                if self.counting_line and prev_pos and track_id not in self.crossed_vehicles:
+                                    if self._check_line_crossing(prev_pos, current_pos, 
+                                                                 self.counting_line[0], 
+                                                                 self.counting_line[1]):
+                                        self.crossed_vehicles.add(track_id)
+                                        crossed_per_minute[current_minute].add(track_id)
+                                        print(f"✓ Vehicle {track_id} crossed the line at minute {current_minute}!")
                                 
                                 # Limit trail length
                                 if len(self.track_history[track_id]) > max_trail_length:
@@ -216,6 +285,19 @@ class VehicleTracker:
                     draw_trails=draw_trails
                 )
                 
+                # Draw counting line if enabled
+                if self.counting_line:
+                    cv2.line(annotated_frame, 
+                            self.counting_line[0], 
+                            self.counting_line[1], 
+                            (0, 255, 255),  # Yellow line
+                            3)
+                    # Draw crossing counter
+                    text = f"Crossed: {len(self.crossed_vehicles)}"
+                    cv2.putText(annotated_frame, text, 
+                               (self.counting_line[0][0], self.counting_line[0][1] - 10),
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+                
                 # Write to output video
                 if writer:
                     writer.write(annotated_frame)
@@ -239,7 +321,8 @@ class VehicleTracker:
                 
                 if show_progress and frame_idx % 30 == 0:
                     progress = (frame_idx / total_frames) * 100
-                    print(f"   Progress: {progress:.1f}% | Unique vehicles: {len(self.unique_vehicles)}", end='\r')
+                    crossed_info = f" | Crossed: {len(self.crossed_vehicles)}" if self.counting_line else ""
+                    print(f"   Progress: {progress:.1f}% | Unique vehicles: {len(self.unique_vehicles)}{crossed_info}", end='\r')
                 
                 frame_idx += 1
             
@@ -253,13 +336,75 @@ class VehicleTracker:
         print(f"\n✅ Tracking complete!")
         print(f"   Frames processed: {frame_idx}")
         print(f"   Unique vehicles tracked: {len(self.unique_vehicles)}")
+        if self.counting_line:
+            print(f"   Vehicles crossed line: {len(self.crossed_vehicles)}")
         
         # Calculate statistics per vehicle type
         vehicle_type_counts = defaultdict(int)
+        crossed_type_counts = defaultdict(int)
+        
         for track_id in self.unique_vehicles:
             cls_id = self.track_classes.get(track_id)
             if cls_id:
                 vehicle_type_counts[cls_id] += 1
+                if track_id in self.crossed_vehicles:
+                    crossed_type_counts[cls_id] += 1
+        
+        # Prepare per-minute data for time series
+        video_duration_minutes = int(total_frames / (fps * 60)) + 1
+        time_series = []
+        
+        for minute in range(video_duration_minutes):
+            vehicles_count = len(vehicles_per_minute.get(minute, set()))
+            crossed_count = len(crossed_per_minute.get(minute, set()))
+            
+            time_series.append({
+                'minute': minute,
+                'vehicles': vehicles_count,
+                'crossed': crossed_count if self.counting_line else None
+            })
+        
+        # Calculate traffic density analysis
+        total_minutes = max(1, video_duration_minutes)
+        avg_vehicles_per_minute = len(self.unique_vehicles) / total_minutes
+        avg_crossed_per_minute = (len(self.crossed_vehicles) / total_minutes) if self.counting_line else None
+        
+        # Density classification (you can adjust these thresholds)
+        if avg_vehicles_per_minute < 5:
+            density_level = "Sepi"
+            density_percentage = 20
+        elif avg_vehicles_per_minute < 15:
+            density_level = "Normal"
+            density_percentage = 50
+        elif avg_vehicles_per_minute < 30:
+            density_level = "Ramai"
+            density_percentage = 75
+        else:
+            density_level = "Sangat Padat"
+            density_percentage = 95
+
+        # Crossed-only density classification (optional)
+        crossed_density_level = None
+        crossed_density_percentage = None
+        if avg_crossed_per_minute is not None:
+            if avg_crossed_per_minute < 3:
+                crossed_density_level = "Sepi"
+                crossed_density_percentage = 20
+            elif avg_crossed_per_minute < 10:
+                crossed_density_level = "Normal"
+                crossed_density_percentage = 50
+            elif avg_crossed_per_minute < 20:
+                crossed_density_level = "Ramai"
+                crossed_density_percentage = 75
+            else:
+                crossed_density_level = "Sangat Padat"
+                crossed_density_percentage = 95
+        
+        print(f"   Traffic density (all): {density_level} ({density_percentage}%)")
+        print(f"   Avg vehicles/minute: {avg_vehicles_per_minute:.1f}")
+        if avg_crossed_per_minute is not None:
+            print(f"   Traffic density (crossed): {crossed_density_level} ({crossed_density_percentage}%)")
+            print(f"   Avg crossed/minute: {avg_crossed_per_minute:.1f}")
         
         return {
             'video_info': {
@@ -267,15 +412,28 @@ class VehicleTracker:
                 'fps': fps,
                 'width': frame_width,
                 'height': frame_height,
-                'total_frames': total_frames
+                'total_frames': total_frames,
+                'duration_minutes': video_duration_minutes
             },
             'statistics': {
                 'unique_vehicles': len(self.unique_vehicles),
+                'vehicles_crossed_line': len(self.crossed_vehicles) if self.counting_line else None,
                 'vehicle_type_counts': {
                     get_vehicle_name(cls_id): count 
                     for cls_id, count in vehicle_type_counts.items()
                 },
-                'total_detections': sum(len(ft['tracks']) for ft in frame_tracks)
+                'crossed_type_counts': {
+                    get_vehicle_name(cls_id): count 
+                    for cls_id, count in crossed_type_counts.items()
+                } if self.counting_line else None,
+                'total_detections': sum(len(ft['tracks']) for ft in frame_tracks),
+                'time_series': time_series,
+                'avg_vehicles_per_minute': round(avg_vehicles_per_minute, 2),
+                'density_level': density_level,
+                'density_percentage': density_percentage,
+                'avg_crossed_per_minute': round(avg_crossed_per_minute, 2) if avg_crossed_per_minute is not None else None,
+                'crossed_density_level': crossed_density_level,
+                'crossed_density_percentage': crossed_density_percentage
             },
             'frame_tracks': frame_tracks,
             'output_path': output_path

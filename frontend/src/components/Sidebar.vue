@@ -75,9 +75,9 @@
             </div>
 
             <!-- dropdown menu -->
-            <div v-if="openHistoryMenuId === h.id" ref="menuRef" class="absolute right-0 mt-1 z-50 w-44 bg-white border rounded-md shadow-lg overflow-hidden sidebar-history-menu">
+            <div v-if="openHistoryMenuId === h.id" ref="menuRef" class="absolute right-0 mt-1 z-50 w-48 bg-white border rounded-md shadow-lg overflow-hidden sidebar-history-menu">
               <button @click="shareHistory(h)" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Bagikan</button>
-              <button @click="downloadHistory(h)" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Unduh laporan</button>
+              <button @click="downloadHistoryCSV(h)" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Unduh CSV</button>
               <div class="border-t" />
               <button @click="deleteHistory(h)" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">Hapus</button>
             </div>
@@ -169,7 +169,9 @@ const loadHistoryItems = async () => {
       id: h.id,
       name: h.name,
       path: `/process/${h.process_id}`,
-      totalVehicles: h.total_vehicles
+      totalVehicles: h.total_vehicles,
+      process_id: h.process_id,
+      results: h.results || null
     }))
   } catch (e) {
     console.error('Error loading history items:', e)
@@ -215,12 +217,52 @@ const shareHistory = async (h) => {
   closeHistoryMenu()
 }
 
-const downloadHistory = (h) => {
-  const data = JSON.stringify(h, null, 2)
-  const blob = new Blob([data], { type: 'application/json' })
+const buildCSVFromResults = (name, results) => {
+  const safeName = (name || 'traffic_data').replace(/\.[^/.]+$/, '')
+  const filename = `${safeName}_per_minute.csv`
+  let csv = 'Menit,Kendaraan Terdeteksi'
+  const hasCrossed = results?.vehicles_crossed_line !== null && results?.vehicles_crossed_line !== undefined
+  if (hasCrossed) csv += ',Melewati Garis'
+  csv += '\n'
+
+  const series = results?.time_series || []
+  series.forEach(item => {
+    csv += `${item.minute},${item.vehicles}`
+    if (hasCrossed) csv += `,${item.crossed || 0}`
+    csv += '\n'
+  })
+
+  csv += '\nRingkasan\n'
+  csv += `Total Kendaraan,${results?.unique_vehicles ?? 0}\n`
+  if (hasCrossed) csv += `Total Melewati Garis,${results?.vehicles_crossed_line ?? 0}\n`
+  if (results?.avg_vehicles_per_minute !== undefined) csv += `Rata-rata per Menit (Semua),${results.avg_vehicles_per_minute}\n`
+  if (results?.density_level) csv += `Tingkat Kepadatan (Semua),${results.density_level}\n`
+  if (results?.density_percentage !== undefined) csv += `Persentase Kepadatan (Semua),${results.density_percentage}%\n`
+  if (results?.avg_crossed_per_minute !== undefined && results?.crossed_density_level && results?.crossed_density_percentage !== undefined) {
+    csv += `Rata-rata per Menit (Melewati Garis),${results.avg_crossed_per_minute}\n`
+    csv += `Tingkat Kepadatan (Melewati Garis),${results.crossed_density_level}\n`
+    csv += `Persentase Kepadatan (Melewati Garis),${results.crossed_density_percentage}%\n`
+  }
+
+  return { filename, csv }
+}
+
+const downloadHistoryCSV = async (h) => {
+  // If results missing or incomplete, fetch full process details
+  let results = h.results
+  if (!results || !results.time_series) {
+    try {
+      const processData = await api.getProcess(h.process_id)
+      results = processData.results || processData.results || processData.statistics || processData.results || processData.results
+    } catch (e) {
+      console.error('Failed fetch process for CSV:', e)
+    }
+  }
+  const { filename, csv } = buildCSVFromResults(h.name, results)
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob)
-  a.download = `history-${h.id}.json`
+  a.download = filename
   document.body.appendChild(a)
   a.click()
   a.remove()

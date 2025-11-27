@@ -177,8 +177,18 @@ const confirm = async () => {
   }
 
   try {
-    // Upload video to backend
-    const result = await api.uploadAndProcess(videoFile)
+    // Prepare line coordinates
+    const lineCoordinates = {
+      x1: Math.round(points.value[0].x),
+      y1: Math.round(points.value[0].y),
+      x2: Math.round(points.value[1].x),
+      y2: Math.round(points.value[1].y)
+    }
+    
+    console.log('Uploading video with counting line:', lineCoordinates)
+    
+    // Upload video to backend with line coordinates
+    const result = await api.uploadAndProcess(videoFile, lineCoordinates)
     
     // Navigate to process page
     router.push(`/process/${result.processId}`)

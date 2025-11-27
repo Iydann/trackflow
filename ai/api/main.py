@@ -204,6 +204,10 @@ async def process_video(
     confidence: float = 0.25,
     save_video: bool = True,
     draw_trails: bool = True,
+    line_x1: Optional[int] = None,
+    line_y1: Optional[int] = None,
+    line_x2: Optional[int] = None,
+    line_y2: Optional[int] = None,
     background_tasks: BackgroundTasks = None
 ) -> ProcessResponse:
     """
@@ -215,6 +219,7 @@ async def process_video(
         confidence: Confidence threshold (0-1)
         save_video: Save output video
         draw_trails: Draw movement trails (track mode only)
+        line_x1, line_y1, line_x2, line_y2: Counting line coordinates (optional)
         
     Returns:
         Processing results
@@ -230,6 +235,12 @@ async def process_video(
             suffix = "_tracked" if mode == "track" else "_detected"
             output_path = generate_output_filename(temp_path, suffix=suffix)
         
+        # Parse counting line if provided
+        counting_line = None
+        if all(v is not None for v in [line_x1, line_y1, line_x2, line_y2]):
+            counting_line = ((line_x1, line_y1), (line_x2, line_y2))
+            print(f"📏 Counting line provided: {counting_line}")
+        
         # Process based on mode
         results = None
         
@@ -241,6 +252,7 @@ async def process_video(
             results = tracker_instance.track_video(
                 video_path=temp_path,
                 output_path=output_path,
+                counting_line=counting_line,
                 show_progress=False,
                 draw_trails=draw_trails
             )

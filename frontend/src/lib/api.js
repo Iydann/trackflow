@@ -38,9 +38,17 @@ export const api = {
     return response.data;
   },
 
-  async uploadAndProcess(file) {
+  async uploadAndProcess(file, lineCoordinates = null) {
     const formData = new FormData();
     formData.append('video', file);
+    
+    // Add line coordinates if provided
+    if (lineCoordinates) {
+      formData.append('line_x1', lineCoordinates.x1);
+      formData.append('line_y1', lineCoordinates.y1);
+      formData.append('line_x2', lineCoordinates.x2);
+      formData.append('line_y2', lineCoordinates.y2);
+    }
     
     const response = await axios.post(`${API_URL}/api/process`, formData, {
       headers: { 

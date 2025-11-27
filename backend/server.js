@@ -162,6 +162,9 @@ app.post('/api/process', optionalAuth, upload.single('video'), async (req, res) 
     const videoPath = req.file.path;
     const videoName = req.file.originalname;
     const userId = req.user?.userId || null;
+    
+    // Extract counting line coordinates from request body
+    const { line_x1, line_y1, line_x2, line_y2 } = req.body;
 
     const processRecord = {
       name: videoName,
@@ -186,7 +189,12 @@ app.post('/api/process', optionalAuth, upload.single('video'), async (req, res) 
       message: 'Video uploaded, processing started'
     });
 
-    processVideoInBackground(processData.id, videoPath, videoName);
+    // Pass line coordinates to background processing
+    const lineCoords = (line_x1 && line_y1 && line_x2 && line_y2) 
+      ? { line_x1, line_y1, line_x2, line_y2 }
+      : null;
+    
+    processVideoInBackground(processData.id, videoPath, videoName, lineCoords);
 
   } catch (error) {
     console.error('Error processing video:', error);
@@ -194,7 +202,7 @@ app.post('/api/process', optionalAuth, upload.single('video'), async (req, res) 
   }
 });
 
-async function processVideoInBackground(processId, videoPath, videoName) {
+async function processVideoInBackground(processId, videoPath, videoName, lineCoords = null) {
   try {
     const formData = new FormData();
     formData.append('file', fs.createReadStream(videoPath), {
@@ -205,9 +213,20 @@ async function processVideoInBackground(processId, videoPath, videoName) {
     console.log(`[${processId}] Starting AI processing...`);
     console.log(`[${processId}] Video: ${videoName}`);
     console.log(`[${processId}] Path: ${videoPath}`);
+    
+    if (lineCoords) {
+      console.log(`[${processId}] Counting line: (${lineCoords.line_x1},${lineCoords.line_y1}) -> (${lineCoords.line_x2},${lineCoords.line_y2})`);
+    }
+    
     console.log(`[${processId}] AI URL: ${AI_API_URL}/process`);
 
-    const aiResponse = await axios.post(`${AI_API_URL}/process`, formData, {
+    // Build query params for counting line
+    let queryParams = '';
+    if (lineCoords) {
+      queryParams = `?line_x1=${lineCoords.line_x1}&line_y1=${lineCoords.line_y1}&line_x2=${lineCoords.line_x2}&line_y2=${lineCoords.line_y2}`;
+    }
+
+    const aiResponse = await axios.post(`${AI_API_URL}/process${queryParams}`, formData, {
       headers: formData.getHeaders(),
       timeout: 0,
       maxContentLength: Infinity,
@@ -220,6 +239,11 @@ async function processVideoInBackground(processId, videoPath, videoName) {
     
     const statistics = results.statistics || {};
     const vehicleCount = statistics.unique_vehicles || statistics.total_vehicles || 0;
+    const crossedCount = statistics.vehicles_crossed_line;
+    
+    if (crossedCount !== null && crossedCount !== undefined) {
+      console.log(`[${processId}] Vehicles crossed line: ${crossedCount}`);
+    }
 
     await supabase
       .from('processes')
@@ -237,10 +261,14 @@ async function processVideoInBackground(processId, videoPath, videoName) {
         process_id: processId,
         name: videoName,
         total_vehicles: vehicleCount,
+        results: statistics,
         created_at: new Date().toISOString()
       });
 
     console.log(`Process ${processId} completed with ${vehicleCount} vehicles`);
+    if (crossedCount !== null && crossedCount !== undefined) {
+      console.log(`Process ${processId} - ${crossedCount} crossed the line`);
+    }
 
     fs.unlinkSync(videoPath);
 
@@ -298,7 +326,7 @@ app.get('/api/history', optionalAuth, async (req, res) => {
   try {
     let query = supabase
       .from('history')
-      .select('*')
+      .select('id, process_id, name, total_vehicles, created_at, results')
       .order('created_at', { ascending: false });
 
     // If authenticated, join with processes to filter by user
