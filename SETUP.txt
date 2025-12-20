@@ -1,0 +1,70 @@
+TrackFlow Setup Instructions
+============================
+Shortcut
+cd ai ; python -m uvicorn api.main:app --reload --port 8000
+cd backend ; npm run dev
+cd frontend ; npm run dev
+============================
+
+
+PREREQUISITES:
+- Node.js (v18+)
+- Python (3.8+)
+- Supabase account
+
+1. SUPABASE SETUP
+   - Go to https://supabase.com and create a new project
+   - Once created, go to Project Settings > API
+   - Copy your project URL and anon/public key
+   - In Supabase SQL Editor, run the schema from backend/schema.sql
+
+2. BACKEND SETUP
+   cd backend
+   npm install
+   
+   Create .env file:
+   SUPABASE_URL=your_supabase_url_here
+   SUPABASE_KEY=your_supabase_anon_key_here
+   AI_API_URL=http://localhost:8000
+   PORT=3000
+
+3. AI API SETUP
+   cd ai
+   pip install -r requirements.txt
+
+4. FRONTEND SETUP
+   cd frontend
+   npm install
+
+5. START ALL SERVICES
+   
+   Option A - Use start script (Windows):
+   Double-click start.bat
+   
+   Option B - Manual start:
+   Terminal 1: cd ai && python -m uvicorn api.main:app --reload --port 8000
+   Terminal 2: cd backend && npm run dev
+   Terminal 3: cd frontend && npm run dev
+
+6. ACCESS
+   - Frontend: http://localhost:5173
+   - Backend API: http://localhost:3000
+   - AI API: http://localhost:8000
+
+USAGE FLOW:
+1. Open http://localhost:5173
+2. Go to "Upload video" page
+3. Select/drag a video file (MP4)
+4. Click "Start defining counting line"
+5. Click 2 points on the image to draw line
+6. Click "Confirm" - video uploads to backend
+7. Backend automatically sends to AI for processing
+8. Watch progress on Process page
+9. When complete, results appear in History sidebar
+10. Click history items to view detection results
+
+ARCHITECTURE:
+Frontend (Vue) -> Backend (Node/Express) -> Supabase (Database)
+                      ↓
+                  AI API (FastAPI/YOLOv8)
+

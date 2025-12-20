@@ -16,12 +16,7 @@
       </Button>
     </nav>
 
-    <!-- Dev-cuma buat seed data, ntar dihapus -->
-    <div v-if="isDev && !collapsed" class="mt-3 flex flex-col gap-1">
-      <button @click="clearAllData" class="text-xs text-red-500 hover:underline text-left font-semibold">Clear All Data</button>
-      <button @click="seedDummy" class="text-xs text-gray-500 hover:underline text-left">Test add demo Process items</button>
-      <button @click="seedHistoryDummy" class="text-xs text-gray-500 hover:underline text-left">Test add demo History items</button>
-    </div>
+    
 
   <ScrollArea class="flex-1 overflow-auto mt-3">
       <div>
@@ -42,7 +37,7 @@
           </div>
         </div>
 
-        <h2 v-if="!collapsed" class="text-sm font-bold text-gray-500 mt-4">History</h2>
+        <h2 v-if="!collapsed" class="text-sm font-bold text-gray-500 mt-4">History ({{ historyItems.length }})</h2>
 
         <div class="mt-2 space-y-1">
           <div
@@ -109,7 +104,7 @@ const collapsed = ref(false)
 const processItems = ref([])
 const historyItems = ref([])
 
-const isDev = import.meta.env?.DEV === true
+
 
 const navigationItems = [
   { icon: HomeIcon, label: 'Home', path: '/' },
@@ -142,21 +137,7 @@ const loadProcessItems = async () => {
   }
 }
 
-const clearAllData = async () => {
-  if (confirm('Clear semua data Process & History?')) {
-    // For dev mode, just reload
-    loadProcessItems()
-    loadHistoryItems()
-  }
-}
-
-const seedDummy = () => {
-  alert('Use the Upload page to create real processes')
-}
-
-const seedHistoryDummy = () => {
-  alert('History will be created automatically when processes complete')
-}
+ 
 
 const handleStorageChange = (e) => {
   // Not needed anymore with API
@@ -164,15 +145,18 @@ const handleStorageChange = (e) => {
 
 const loadHistoryItems = async () => {
   try {
+    console.log('Loading history items...')
     const history = await api.getHistory()
+    console.log('History data received:', history)
     historyItems.value = history.map(h => ({
       id: h.id,
       name: h.name,
       path: `/process/${h.process_id}`,
       totalVehicles: h.total_vehicles,
       process_id: h.process_id,
-      results: h.results || null
+      results: null // Will be fetched from process API when needed
     }))
+    console.log('Processed history items:', historyItems.value)
   } catch (e) {
     console.error('Error loading history items:', e)
     historyItems.value = []

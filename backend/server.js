@@ -245,7 +245,8 @@ async function processVideoInBackground(processId, videoPath, videoName, lineCoo
       console.log(`[${processId}] Vehicles crossed line: ${crossedCount}`);
     }
 
-    await supabase
+    // Update process
+    const { error: processUpdateError } = await supabase
       .from('processes')
       .update({
         status: 'completed',
@@ -255,15 +256,25 @@ async function processVideoInBackground(processId, videoPath, videoName, lineCoo
       })
       .eq('id', processId);
 
-    await supabase
+    if (processUpdateError) {
+      console.error(`[${processId}] Error updating process:`, processUpdateError);
+    }
+
+    // Insert into history
+    const { error: historyInsertError } = await supabase
       .from('history')
       .insert({
         process_id: processId,
         name: videoName,
         total_vehicles: vehicleCount,
-        results: statistics,
         created_at: new Date().toISOString()
       });
+
+    if (historyInsertError) {
+      console.error(`[${processId}] Error inserting history:`, historyInsertError);
+    } else {
+      console.log(`[${processId}] Successfully inserted into history table`);
+    }
 
     console.log(`Process ${processId} completed with ${vehicleCount} vehicles`);
     if (crossedCount !== null && crossedCount !== undefined) {
@@ -326,7 +337,7 @@ app.get('/api/history', optionalAuth, async (req, res) => {
   try {
     let query = supabase
       .from('history')
-      .select('id, process_id, name, total_vehicles, created_at, results')
+      .select('id, process_id, name, total_vehicles, created_at')
       .order('created_at', { ascending: false });
 
     // If authenticated, join with processes to filter by user
@@ -336,15 +347,25 @@ app.get('/api/history', optionalAuth, async (req, res) => {
         .select('id')
         .eq('user_id', req.user.userId);
       
-      const processIds = userProcesses.map(p => p.id);
-      query = query.in('process_id', processIds);
+      if (userProcesses && userProcesses.length > 0) {
+        const processIds = userProcesses.map(p => p.id);
+        query = query.in('process_id', processIds);
+      } else {
+        // User has no processes, return empty array
+        return res.json([]);
+      }
     }
 
     const { data, error } = await query;
 
     if (error) throw error;
+    
+    console.log('History API - Retrieved records:', data?.length || 0);
+    console.log('History API - User ID:', req.user?.userId || 'not authenticated');
+    
     res.json(data || []);
   } catch (error) {
+    console.error('History API error:', error);
     res.status(500).json({ error: error.message });
   }
 });

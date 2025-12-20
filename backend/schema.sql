@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS history (
   process_id UUID REFERENCES processes(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   total_vehicles INTEGER DEFAULT 0,
+  results JSONB,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

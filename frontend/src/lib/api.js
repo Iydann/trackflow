@@ -74,9 +74,12 @@ export const api = {
   },
 
   async getHistory() {
+    console.log('API: Calling getHistory...')
+    console.log('API: Headers:', getAuthHeaders())
     const response = await axios.get(`${API_URL}/api/history`, {
       headers: getAuthHeaders()
     });
+    console.log('API: History response:', response.data)
     return response.data;
   },
 
