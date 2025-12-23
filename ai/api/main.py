@@ -369,10 +369,6 @@ async def get_task_status(task_id: str) -> Dict[str, Any]:
         raise HTTPException(status_code=404, detail="Task not found")
     
     return tasks[task_id]
-        # Cleanup on error
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
-        raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
 
 
 @app.get("/download/{filename}")
