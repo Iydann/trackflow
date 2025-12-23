@@ -242,13 +242,14 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import NavigationHeader from './NavigationHeader.vue'
 import Sidebar from './Sidebar.vue'
 import TrafficChart from './TrafficChart.vue'
 import { api } from '../lib/api.js'
 
 const route = useRoute()
+const router = useRouter()
 const uploadProgress = ref(0)
 const detectProgress = ref(0)
 const process = ref(null)
@@ -441,12 +442,86 @@ const processVideoWithAI = async (videoFile, processId) => {
   pollProcessStatus(processId)
 }
 
-onMounted(() => {
+onMounted(async () => {
   const processId = getId()
-  loadProcess(processId)
+  
+  // Check if we're in upload mode (redirected from DefineLine)
+  if (processId === 'uploading') {
+    try {
+      // Retrieve upload data from sessionStorage
+      const uploadDataStr = sessionStorage.getItem('trackflow_upload_data')
+      const fileKey = sessionStorage.getItem('trackflow_upload_file_key')
+      
+      if (!uploadDataStr || !fileKey || !window[fileKey]) {
+        errorMessage.value = 'Upload data not found. Please try again.'
+        router.push('/upload')
+        return
+      }
+      
+      const uploadData = JSON.parse(uploadDataStr)
+      const videoFile = window[fileKey]
+      
+      // Initialize process display
+      process.value = {
+        id: 'uploading',
+        name: uploadData.fileName,
+        status: 'uploading',
+        previewUrl: null,
+        resolution: '-',
+        duration: 0,
+        startTime: new Date().toISOString()
+      }
+      
+      processingStatus.value = 'Uploading video...'
+      uploadProgress.value = 0
+      detectProgress.value = 0
+      
+      // Start upload with progress tracking
+      const result = await api.uploadAndProcess(
+        videoFile,
+        uploadData.lineCoordinates,
+        (percent) => {
+          uploadProgress.value = percent
+          if (percent < 100) {
+            processingStatus.value = `Uploading video... ${percent}%`
+          } else {
+            processingStatus.value = 'Upload complete. Processing...'
+          }
+        }
+      )
+      
+      // Clean up sessionStorage and window global
+      sessionStorage.removeItem('trackflow_upload_data')
+      sessionStorage.removeItem('trackflow_upload_file_key')
+      delete window[fileKey]
+      
+      // Navigate to actual process ID and start polling
+      uploadProgress.value = 100
+      router.replace(`/process/${result.processId}`)
+      pollProcessStatus(result.processId)
+      
+    } catch (error) {
+      console.error('Upload error:', error)
+      errorMessage.value = error.response?.data?.error || 'Upload failed. Please try again.'
+      processingStatus.value = 'Failed'
+      
+      // Clean up on error
+      sessionStorage.removeItem('trackflow_upload_data')
+      const fileKey = sessionStorage.getItem('trackflow_upload_file_key')
+      if (fileKey) {
+        delete window[fileKey]
+        sessionStorage.removeItem('trackflow_upload_file_key')
+      }
+    }
+  } else {
+    // Normal process loading
+    loadProcess(processId)
+  }
 
   watch(() => route.params.id, (newId) => {
-    loadProcess(newId)
+    if (newId !== 'uploading') {
+      loadProcess(newId)
+    }
   })
 })
 </script>

@@ -176,26 +176,30 @@ const confirm = async () => {
     return
   }
 
-  try {
-    // Prepare line coordinates
-    const lineCoordinates = {
-      x1: Math.round(points.value[0].x),
-      y1: Math.round(points.value[0].y),
-      x2: Math.round(points.value[1].x),
-      y2: Math.round(points.value[1].y)
-    }
-    
-    console.log('Uploading video with counting line:', lineCoordinates)
-    
-    // Upload video to backend with line coordinates
-    const result = await api.uploadAndProcess(videoFile, lineCoordinates)
-    
-    // Navigate to process page
-    router.push(`/process/${result.processId}`)
-  } catch (error) {
-    console.error('Upload error:', error)
-    alert('Failed to upload video: ' + error.message)
+  // Prepare line coordinates
+  const lineCoordinates = {
+    x1: Math.round(points.value[0].x),
+    y1: Math.round(points.value[0].y),
+    x2: Math.round(points.value[1].x),
+    y2: Math.round(points.value[1].y)
   }
+  
+  console.log('Uploading video with counting line:', lineCoordinates)
+  
+  // Store upload data in sessionStorage for ProcessPage
+  sessionStorage.setItem('trackflow_upload_data', JSON.stringify({
+    fileName: videoFile.name,
+    fileSize: videoFile.size,
+    lineCoordinates
+  }))
+  
+  // Store file in temp global (will be picked up by ProcessPage)
+  const fileKey = `trackflow_file_${Date.now()}`
+  window[fileKey] = videoFile
+  sessionStorage.setItem('trackflow_upload_file_key', fileKey)
+  
+  // Navigate to process page immediately
+  router.push('/process/uploading')
 }
 
 const goBack = () => {

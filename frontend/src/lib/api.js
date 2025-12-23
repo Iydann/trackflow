@@ -38,7 +38,7 @@ export const api = {
     return response.data;
   },
 
-  async uploadAndProcess(file, lineCoordinates = null) {
+  async uploadAndProcess(file, lineCoordinates = null, onUploadProgress = null) {
     const formData = new FormData();
     formData.append('video', file);
     
@@ -54,6 +54,12 @@ export const api = {
       headers: { 
         'Content-Type': 'multipart/form-data',
         ...getAuthHeaders()
+      },
+      onUploadProgress: (progressEvent) => {
+        if (onUploadProgress && progressEvent.total) {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          onUploadProgress(percentCompleted);
+        }
       }
     });
     return response.data;
