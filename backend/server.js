@@ -198,12 +198,16 @@ app.post('/api/process', optionalAuth, upload.single('video'), async (req, res) 
       message: 'Video uploaded, processing started'
     });
 
-    // Pass line coordinates to background processing
+    // Pass line coordinates to background processing (fire-and-forget with error handling)
     const lineCoords = (line_x1 && line_y1 && line_x2 && line_y2) 
       ? { line_x1, line_y1, line_x2, line_y2 }
       : null;
     
-    processVideoInBackground(processData.id, videoPath, videoName, lineCoords);
+    // Don't await - let it run in background
+    processVideoInBackground(processData.id, videoPath, videoName, lineCoords)
+      .catch(err => {
+        console.error(`[${processData.id}] Fatal background error:`, err);
+      });
 
   } catch (error) {
     console.error('Error processing video:', error);
