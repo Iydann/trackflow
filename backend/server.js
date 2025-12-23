@@ -19,19 +19,11 @@ const PORT = process.env.PORT || 3000;
 const AI_API_URL = process.env.AI_API_URL || 'http://localhost:8000';
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
-// CORS config for Vercel frontend
-const corsOptions = {
-  origin: [
-    'http://localhost:5173',
-    'https://trackflow-ee6p2kjzs-iydains-projects.vercel.app',
-    'https://trackflow-sepia.vercel.app',
-    /\.vercel\.app$/  // Allow all Vercel preview domains
-  ],
-  credentials: true,
-  optionsSuccessStatus: 200
-};
-
-app.use(cors(corsOptions));
+// CORS - allow all for now
+app.use(cors({
+  origin: true,
+  credentials: true
+}));
 app.use(express.json());
 
 const storage = multer.diskStorage({
