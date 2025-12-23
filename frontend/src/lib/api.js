@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { uploadVideoToStorage } from './supabase.js';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -39,29 +40,26 @@ export const api = {
   },
 
   async uploadAndProcess(file, lineCoordinates = null, onUploadProgress = null) {
-    const formData = new FormData();
-    formData.append('video', file);
+    // Upload video directly to Supabase Storage first
+    const uploadResult = await uploadVideoToStorage(file, onUploadProgress)
+    
+    // Send storage URL to backend for processing
+    const payload = {
+      videoUrl: uploadResult.publicUrl,
+      videoPath: uploadResult.path,
+      fileName: uploadResult.fileName
+    }
     
     // Add line coordinates if provided
     if (lineCoordinates) {
-      formData.append('line_x1', lineCoordinates.x1);
-      formData.append('line_y1', lineCoordinates.y1);
-      formData.append('line_x2', lineCoordinates.x2);
-      formData.append('line_y2', lineCoordinates.y2);
+      payload.line_x1 = lineCoordinates.x1
+      payload.line_y1 = lineCoordinates.y1
+      payload.line_x2 = lineCoordinates.x2
+      payload.line_y2 = lineCoordinates.y2
     }
     
-    const response = await axios.post(`${API_URL}/api/process`, formData, {
-      headers: { 
-        'Content-Type': 'multipart/form-data',
-        ...getAuthHeaders()
-      },
-      timeout: 0, // No timeout - Railway has its own 10min limit, but backend returns immediately
-      onUploadProgress: (progressEvent) => {
-        if (onUploadProgress && progressEvent.total) {
-          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-          onUploadProgress(percentCompleted);
-        }
-      }
+    const response = await axios.post(`${API_URL}/api/process`, payload, {
+      headers: getAuthHeaders()
     });
     return response.data;
   },
