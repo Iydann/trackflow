@@ -74,8 +74,8 @@ const openSignUp = () => {
 const logout = () => {
   api.logout()
   showMenu.value = false
-  router.push('/')
-  window.location.reload()
+  // Use replace instead of push to avoid Vercel 404
+  window.location.href = '/'
 }
 
 const toggleMenu = (e) => {

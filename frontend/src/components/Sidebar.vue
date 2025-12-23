@@ -122,6 +122,13 @@ const navigate = (path) => {
 
 const loadProcessItems = async () => {
   try {
+    // Only load processes if user is logged in
+    const userData = localStorage.getItem('trackflow_user')
+    if (!userData) {
+      processItems.value = []
+      return
+    }
+    
     const processes = await api.getProcesses()
     processItems.value = processes
       .filter(p => p.status === 'processing')
@@ -145,6 +152,13 @@ const handleStorageChange = (e) => {
 
 const loadHistoryItems = async () => {
   try {
+    // Only load history if user is logged in
+    const userData = localStorage.getItem('trackflow_user')
+    if (!userData) {
+      historyItems.value = []
+      return
+    }
+    
     console.log('Loading history items...')
     const history = await api.getHistory()
     console.log('History data received:', history)

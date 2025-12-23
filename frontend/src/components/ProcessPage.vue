@@ -9,7 +9,19 @@
             {{ process ? process.name : 'Processing' }}
           </h1>
 
-          <div class="bg-white rounded-lg shadow-sm border p-6 mb-6">
+          <!-- Skeleton loading animation -->
+          <div v-if="isLoading" class="bg-white rounded-lg shadow-sm border p-6 mb-6 animate-pulse">
+            <div class="flex gap-4">
+              <div class="w-48 h-32 bg-gray-200 rounded-md"></div>
+              <div class="flex-1 space-y-3">
+                <div class="h-6 bg-gray-200 rounded w-2/3"></div>
+                <div class="h-4 bg-gray-200 rounded w-1/2"></div>
+                <div class="h-4 bg-gray-200 rounded w-3/4"></div>
+              </div>
+            </div>
+          </div>
+
+          <div v-else class="bg-white rounded-lg shadow-sm border p-6 mb-6">
             <div class="flex gap-4">
               <div class="w-48 h-32 bg-gray-100 rounded-md overflow-hidden flex-shrink-0">
                 <img
@@ -266,6 +278,7 @@ const crossedDensityPercentage = ref(null)
 const processingStatus = ref('Initializing...')
 const errorMessage = ref(null)
 const apiResponse = ref(null)
+const isLoading = ref(true)
 
 const getId = () => route.params?.id
 
@@ -333,8 +346,12 @@ const loadProcess = async (id) => {
     } else if (data.status === 'processing') {
       pollProcessStatus(id)
     }
+    
+    // Stop loading animation after data is loaded
+    isLoading.value = false
   } catch (e) {
     console.error('Error loading process:', e)
+    isLoading.value = false
   }
 }
 
@@ -547,8 +564,39 @@ onMounted(async () => {
 
   watch(() => route.params.id, (newId) => {
     if (newId !== 'uploading') {
+      isLoading.value = true  // Show skeleton when switching history items
       loadProcess(newId)
     }
   })
 })
 </script>
+
+<style scoped>
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.bg-white.rounded-lg.shadow-sm.border:not(.animate-pulse) {
+  animation: fadeIn 0.5s ease-out;
+}
+</style>
