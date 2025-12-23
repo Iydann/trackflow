@@ -162,21 +162,23 @@ app.get('/api/me', authMiddleware, async (req, res) => {
   }
 });
 
-app.post('/api/process', optionalAuth, async (req, res) => {
+app.post('/api/process', optionalAuth, upload.single('video'), async (req, res) => {
   try {
-    const { videoUrl, videoPath, fileName, line_x1, line_y1, line_x2, line_y2 } = req.body;
-    
-    if (!videoUrl || !videoPath) {
-      return res.status(400).json({ error: 'Missing videoUrl or videoPath' });
+    if (!req.file) {
+      return res.status(400).json({ error: 'No video file uploaded' });
     }
 
+    const videoPath = req.file.path;
+    const videoName = req.file.originalname;
     const userId = req.user?.userId || null;
+    
+    // Extract counting line coordinates from request body
+    const { line_x1, line_y1, line_x2, line_y2 } = req.body;
 
     const processRecord = {
-      name: fileName || 'video.mp4',
+      name: videoName,
       status: 'processing',
       user_id: userId,
-      video_path: videoPath, // Store Supabase path for later deletion
       created_at: new Date().toISOString()
     };
 
@@ -201,7 +203,7 @@ app.post('/api/process', optionalAuth, async (req, res) => {
       ? { line_x1, line_y1, line_x2, line_y2 }
       : null;
     
-    processVideoInBackground(processData.id, videoUrl, videoPath, fileName || 'video.mp4', lineCoords);
+    processVideoInBackground(processData.id, videoPath, videoName, lineCoords);
 
   } catch (error) {
     console.error('Error processing video:', error);
@@ -209,42 +211,17 @@ app.post('/api/process', optionalAuth, async (req, res) => {
   }
 });
 
-async function processVideoInBackground(processId, videoUrl, supabasePath, fileName, lineCoords = null) {
-  let localVideoPath = null;
-  
+async function processVideoInBackground(processId, videoPath, videoName, lineCoords = null) {
   try {
-    // Download video from Supabase to temp location
-    console.log(`[${processId}] Downloading video from Supabase...`);
-    console.log(`[${processId}] URL: ${videoUrl}`);
-    
-    const videoResponse = await axios.get(videoUrl, {
-      responseType: 'stream',
-      timeout: 0
-    });
-    
-    // Save to temp file
-    const tempFileName = `temp_${Date.now()}_${fileName}`;
-    localVideoPath = path.join(__dirname, 'uploads', tempFileName);
-    const writer = fs.createWriteStream(localVideoPath);
-    
-    videoResponse.data.pipe(writer);
-    
-    await new Promise((resolve, reject) => {
-      writer.on('finish', resolve);
-      writer.on('error', reject);
-    });
-    
-    console.log(`[${processId}] Video downloaded to: ${localVideoPath}`);
-    
-    // Now forward to AI
     const formData = new FormData();
-    formData.append('file', fs.createReadStream(localVideoPath), {
-      filename: fileName,
+    formData.append('file', fs.createReadStream(videoPath), {
+      filename: videoName,
       contentType: 'video/mp4'
     });
 
     console.log(`[${processId}] Starting AI processing...`);
-    console.log(`[${processId}] Video: ${fileName}`);
+    console.log(`[${processId}] Video: ${videoName}`);
+    console.log(`[${processId}] Path: ${videoPath}`);
     
     if (lineCoords) {
       console.log(`[${processId}] Counting line: (${lineCoords.line_x1},${lineCoords.line_y1}) -> (${lineCoords.line_x2},${lineCoords.line_y2})`);
@@ -313,49 +290,13 @@ async function processVideoInBackground(processId, videoUrl, supabasePath, fileN
       console.log(`Process ${processId} - ${crossedCount} crossed the line`);
     }
 
-    // Clean up: Delete local temp file
-    if (localVideoPath && fs.existsSync(localVideoPath)) {
-      fs.unlinkSync(localVideoPath);
-      console.log(`[${processId}] Local temp file deleted`);
-    }
-    
-    // Clean up: Delete from Supabase Storage
-    try {
-      const { error: deleteError } = await supabase.storage
-        .from('videos')
-        .remove([supabasePath]);
-      
-      if (deleteError) {
-        console.error(`[${processId}] Error deleting from Supabase:`, deleteError);
-      } else {
-        console.log(`[${processId}] Video deleted from Supabase Storage`);
-      }
-    } catch (deleteErr) {
-      console.error(`[${processId}] Failed to delete from storage:`, deleteErr);
-    }
+    // Clean up: Delete local file
+    fs.unlinkSync(videoPath);
+    console.log(`[${processId}] Local file deleted`);
 
   } catch (error) {
     console.error(`[${processId}] Background processing error:`, error.message);
     console.error(`[${processId}] Full error:`, error);
-    
-    // Clean up temp file on error
-    if (localVideoPath && fs.existsSync(localVideoPath)) {
-      try {
-        fs.unlinkSync(localVideoPath);
-      } catch (e) {
-        console.error(`[${processId}] Failed to delete temp file:`, e);
-      }
-    }
-    
-    // Clean up Supabase file on error
-    try {
-      await supabase.storage
-        .from('videos')
-        .remove([supabasePath]);
-      console.log(`[${processId}] Video deleted from Supabase after error`);
-    } catch (deleteErr) {
-      console.error(`[${processId}] Failed to delete from storage after error:`, deleteErr);
-    }
     
     await supabase
       .from('processes')
