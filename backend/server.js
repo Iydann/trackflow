@@ -19,12 +19,20 @@ const PORT = process.env.PORT || 3000;
 const AI_API_URL = process.env.AI_API_URL || 'http://localhost:8000';
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
-// CORS - allow all for now
+// CORS - explicit headers for large uploads
 app.use(cors({
-  origin: true,
-  credentials: true
+  origin: function(origin, callback) {
+    // Allow all origins (including undefined for same-origin requests)
+    callback(null, true);
+  },
+  credentials: true,
+  maxAge: 86400, // 24 hours preflight cache
+  exposedHeaders: ['Content-Length', 'X-Process-Id']
 }));
-app.use(express.json());
+
+// Increase payload limits
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -164,6 +172,10 @@ app.get('/api/me', authMiddleware, async (req, res) => {
 
 app.post('/api/process', optionalAuth, upload.single('video'), async (req, res) => {
   try {
+    // Extend timeout for large uploads
+    req.setTimeout(30 * 60 * 1000); // 30 minutes
+    res.setTimeout(30 * 60 * 1000);
+    
     if (!req.file) {
       return res.status(400).json({ error: 'No video file uploaded' });
     }
@@ -171,6 +183,8 @@ app.post('/api/process', optionalAuth, upload.single('video'), async (req, res) 
     const videoPath = req.file.path;
     const videoName = req.file.originalname;
     const userId = req.user?.userId || null;
+    
+    console.log(`[UPLOAD] Received file: ${videoName} (${req.file.size} bytes)`);
     
     // Extract counting line coordinates from request body
     const { line_x1, line_y1, line_x2, line_y2 } = req.body;
@@ -452,6 +466,11 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Backend server running on http://localhost:${PORT}`);
 });
+
+// Increase server timeouts for large file uploads
+server.timeout = 30 * 60 * 1000; // 30 minutes
+server.keepAliveTimeout = 65000; // 65 seconds (longer than typical load balancer timeout)
+server.headersTimeout = 66000; // Must be greater than keepAliveTimeout
