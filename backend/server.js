@@ -355,68 +355,6 @@ async function processVideoInBackground(processId, videoPath, videoName, lineCoo
       .eq('id', processId);
   }
 }
-    
-    const statistics = results.statistics || {};
-    const vehicleCount = statistics.unique_vehicles || statistics.total_vehicles || 0;
-    const crossedCount = statistics.vehicles_crossed_line;
-    
-    if (crossedCount !== null && crossedCount !== undefined) {
-      console.log(`[${processId}] Vehicles crossed line: ${crossedCount}`);
-    }
-
-    // Update process
-    const { error: processUpdateError } = await supabase
-      .from('processes')
-      .update({
-        status: 'completed',
-        total_vehicles: vehicleCount,
-        results: statistics,
-        completed_at: new Date().toISOString()
-      })
-      .eq('id', processId);
-
-    if (processUpdateError) {
-      console.error(`[${processId}] Error updating process:`, processUpdateError);
-    }
-
-    // Insert into history
-    const { error: historyInsertError } = await supabase
-      .from('history')
-      .insert({
-        process_id: processId,
-        name: fileName,
-        total_vehicles: vehicleCount,
-        created_at: new Date().toISOString()
-      });
-
-    if (historyInsertError) {
-      console.error(`[${processId}] Error inserting history:`, historyInsertError);
-    } else {
-      console.log(`[${processId}] Successfully inserted into history table`);
-    }
-
-    console.log(`Process ${processId} completed with ${vehicleCount} vehicles`);
-    if (crossedCount !== null && crossedCount !== undefined) {
-      console.log(`Process ${processId} - ${crossedCount} crossed the line`);
-    }
-
-    // Clean up: Delete local file
-    fs.unlinkSync(videoPath);
-    console.log(`[${processId}] Local file deleted`);
-
-  } catch (error) {
-    console.error(`[${processId}] Background processing error:`, error.message);
-    console.error(`[${processId}] Full error:`, error);
-    
-    await supabase
-      .from('processes')
-      .update({
-        status: 'failed',
-        error_message: error.message
-      })
-      .eq('id', processId);
-  }
-}
 
 app.get('/api/processes', optionalAuth, async (req, res) => {
   try {
