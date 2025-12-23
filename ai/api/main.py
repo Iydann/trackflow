@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Optional, Dict, Any
 from datetime import datetime
 import shutil
+import uuid
+import asyncio
 
 from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks
 from fastapi.responses import JSONResponse, FileResponse
@@ -48,6 +50,9 @@ app.add_middleware(
 # Global models (lazy loading)
 detector = None
 tracker = None
+
+# Global tasks storage (in-memory for now)
+tasks: Dict[str, Dict[str, Any]] = {}
 
 
 # Request/Response models
@@ -201,7 +206,7 @@ async def upload_video(
 
 
 @app.post("/process")
-async def process_video(
+async def process_video_async(
     file: UploadFile = File(...),
     mode: str = "track",
     confidence: float = 0.25,
@@ -212,9 +217,9 @@ async def process_video(
     line_x2: Optional[int] = None,
     line_y2: Optional[int] = None,
     background_tasks: BackgroundTasks = None
-) -> ProcessResponse:
+) -> Dict[str, Any]:
     """
-    Process video for vehicle detection/tracking
+    Process video for vehicle detection/tracking (ASYNC - returns immediately)
     
     Args:
         file: Video file to process
@@ -225,12 +230,59 @@ async def process_video(
         line_x1, line_y1, line_x2, line_y2: Counting line coordinates (optional)
         
     Returns:
-        Processing results
+        Task ID for checking status
     """
+    # Generate unique task ID
+    task_id = str(uuid.uuid4())
+    
     # Upload file first
     upload_result = await upload_video(file)
     temp_path = upload_result["file_path"]
     
+    # Initialize task
+    tasks[task_id] = {
+        "status": "processing",
+        "created_at": datetime.now().isoformat(),
+        "video_path": temp_path,
+        "progress": 0
+    }
+    
+    # Start background processing
+    background_tasks.add_task(
+        process_video_background,
+        task_id,
+        temp_path,
+        mode,
+        confidence,
+        save_video,
+        draw_trails,
+        line_x1,
+        line_y1,
+        line_x2,
+        line_y2
+    )
+    
+    # Return immediately
+    return {
+        "task_id": task_id,
+        "status": "processing",
+        "message": "Video processing started in background"
+    }
+
+
+def process_video_background(
+    task_id: str,
+    temp_path: str,
+    mode: str,
+    confidence: float,
+    save_video: bool,
+    draw_trails: bool,
+    line_x1: Optional[int],
+    line_y1: Optional[int],
+    line_x2: Optional[int],
+    line_y2: Optional[int]
+):
+    """Background task to process video"""
     try:
         # Generate output path
         output_path = None
@@ -242,7 +294,7 @@ async def process_video(
         counting_line = None
         if all(v is not None for v in [line_x1, line_y1, line_x2, line_y2]):
             counting_line = ((line_x1, line_y1), (line_x2, line_y2))
-            print(f"📏 Counting line provided: {counting_line}")
+            print(f"📏 [{task_id}] Counting line provided: {counting_line}")
         
         # Process based on mode
         results = None
@@ -270,29 +322,53 @@ async def process_video(
                 output_path=output_path,
                 show_progress=False
             )
-        else:
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid mode. Use 'detect' or 'track'"
-            )
         
         # Save results as JSON
         json_path = generate_output_filename(temp_path, suffix="_results", extension=".json")
         save_results_json(results, json_path)
         
-        # Cleanup temp file in background
-        background_tasks.add_task(cleanup_temp_file, temp_path)
+        # Update task status
+        tasks[task_id] = {
+            "status": "completed",
+            "completed_at": datetime.now().isoformat(),
+            "video_info": results.get("video_info"),
+            "statistics": results.get("statistics"),
+            "output_video_path": output_path,
+            "results_json_path": json_path,
+            "progress": 100
+        }
         
-        return ProcessResponse(
-            status="success",
-            message="Video processed successfully",
-            video_info=results.get("video_info"),
-            statistics=results.get("statistics"),
-            output_video_path=output_path,
-            results_json_path=json_path
-        )
+        # Cleanup temp file
+        cleanup_temp_file(temp_path)
+        
+        print(f"✅ [{task_id}] Processing completed successfully")
         
     except Exception as e:
+        print(f"❌ [{task_id}] Processing failed: {str(e)}")
+        tasks[task_id] = {
+            "status": "failed",
+            "error": str(e),
+            "failed_at": datetime.now().isoformat()
+        }
+        # Cleanup temp file on error
+        cleanup_temp_file(temp_path)
+
+
+@app.get("/task/{task_id}")
+async def get_task_status(task_id: str) -> Dict[str, Any]:
+    """
+    Get status of a processing task
+    
+    Args:
+        task_id: Task ID from process endpoint
+        
+    Returns:
+        Task status and results (if completed)
+    """
+    if task_id not in tasks:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    return tasks[task_id]
         # Cleanup on error
         if os.path.exists(temp_path):
             os.remove(temp_path)

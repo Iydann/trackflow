@@ -239,16 +239,122 @@ async function processVideoInBackground(processId, videoPath, videoName, lineCoo
       queryParams = `?line_x1=${lineCoords.line_x1}&line_y1=${lineCoords.line_y1}&line_x2=${lineCoords.line_x2}&line_y2=${lineCoords.line_y2}`;
     }
 
+    // Send to AI - get task_id immediately
     const aiResponse = await axios.post(`${AI_API_URL}/process${queryParams}`, formData, {
       headers: formData.getHeaders(),
-      timeout: 0,
       maxContentLength: Infinity,
-      maxBodyLength: Infinity
+      maxBodyLength: Infinity,
+      timeout: 120000 // 2 minute timeout just for initial upload
     });
 
-    const results = aiResponse.data;
-    console.log(`[${processId}] AI processing complete!`);
-    console.log(`[${processId}] Statistics:`, results.statistics);
+    const taskId = aiResponse.data.task_id;
+    console.log(`[${processId}] AI task created: ${taskId}`);
+    
+    // Poll for task completion
+    let attempts = 0;
+    const maxAttempts = 1800; // 30 minutes max (poll every second)
+    
+    while (attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+      attempts++;
+      
+      try {
+        const statusResponse = await axios.get(`${AI_API_URL}/task/${taskId}`, {
+          timeout: 10000 // 10 sec timeout for status check
+        });
+        
+        const taskStatus = statusResponse.data;
+        
+        if (taskStatus.status === 'completed') {
+          console.log(`[${processId}] AI processing complete after ${attempts} seconds!`);
+          
+          const results = {
+            statistics: taskStatus.statistics
+          };
+          
+          const statistics = taskStatus.statistics || {};
+          const vehicleCount = statistics.unique_vehicles || statistics.total_vehicles || 0;
+          const crossedCount = statistics.vehicles_crossed_line;
+          
+          if (crossedCount !== null && crossedCount !== undefined) {
+            console.log(`[${processId}] Vehicles crossed line: ${crossedCount}`);
+          }
+
+          // Update process
+          const { error: processUpdateError } = await supabase
+            .from('processes')
+            .update({
+              status: 'completed',
+              total_vehicles: vehicleCount,
+              results: statistics,
+              completed_at: new Date().toISOString()
+            })
+            .eq('id', processId);
+
+          if (processUpdateError) {
+            console.error(`[${processId}] Error updating process:`, processUpdateError);
+          }
+
+          // Insert into history
+          const { error: historyInsertError } = await supabase
+            .from('history')
+            .insert({
+              process_id: processId,
+              name: videoName,
+              total_vehicles: vehicleCount,
+              created_at: new Date().toISOString()
+            });
+
+          if (historyInsertError) {
+            console.error(`[${processId}] Error inserting history:`, historyInsertError);
+          } else {
+            console.log(`[${processId}] Successfully inserted into history table`);
+          }
+
+          console.log(`Process ${processId} completed with ${vehicleCount} vehicles`);
+          if (crossedCount !== null && crossedCount !== undefined) {
+            console.log(`Process ${processId} - ${crossedCount} crossed the line`);
+          }
+
+          // Clean up: Delete local file
+          fs.unlinkSync(videoPath);
+          console.log(`[${processId}] Local file deleted`);
+          
+          return; // Success!
+          
+        } else if (taskStatus.status === 'failed') {
+          throw new Error(taskStatus.error || 'AI processing failed');
+        }
+        
+        // Still processing, continue polling
+        if (attempts % 10 === 0) {
+          console.log(`[${processId}] Still processing... (${attempts}s elapsed)`);
+        }
+        
+      } catch (pollError) {
+        // If status check fails, log but continue polling
+        if (attempts % 30 === 0) {
+          console.error(`[${processId}] Status check error:`, pollError.message);
+        }
+      }
+    }
+    
+    // Timeout after max attempts
+    throw new Error(`Processing timeout after ${maxAttempts} seconds`);
+
+  } catch (error) {
+    console.error(`[${processId}] Background processing error:`, error.message);
+    console.error(`[${processId}] Full error:`, error);
+    
+    await supabase
+      .from('processes')
+      .update({
+        status: 'failed',
+        error_message: error.message
+      })
+      .eq('id', processId);
+  }
+}
     
     const statistics = results.statistics || {};
     const vehicleCount = statistics.unique_vehicles || statistics.total_vehicles || 0;
