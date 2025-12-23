@@ -1,9 +1,9 @@
 TrackFlow Setup Instructions
 ============================
 Shortcut
-cd ai ; python -m uvicorn api.main:app --reload --port 8000
-cd backend ; npm run dev
-cd frontend ; npm run dev
+cd ai && python -m uvicorn api.main:app --reload --port 8000
+cd backend && npm run dev
+cd frontend && npm run dev
 ============================
 
 
@@ -46,10 +46,37 @@ PREREQUISITES:
    Terminal 2: cd backend && npm run dev
    Terminal 3: cd frontend && npm run dev
 
+      Option C - Deploy (Vercel + Hugging Face + Render/Railway):
+      - Frontend on Vercel (Vite build)
+      - Backend on Render/Railway/Fly (Express server, long uploads allowed)
+      - AI on Hugging Face Spaces (FastAPI/YOLO)
+
+      Steps summary:
+      1) Deploy AI to Hugging Face Space (FastAPI):
+         - Set env: ALLOWED_ORIGINS=https://<your-backend-host>
+         - Expose endpoint /process for multipart video (same as local)
+      2) Deploy backend (Render/Railway) and set envs:
+         - SUPABASE_URL=...
+         - SUPABASE_KEY=...
+         - AI_API_URL=https://<your-hf-space>.hf.space
+         - PORT=3000
+         - JWT_SECRET=<secret>
+      3) Deploy frontend (Vercel) and set env:
+         - VITE_API_URL=https://<your-backend-host>
+      4) (Optional) For local AI via tunnel instead of Hugging Face:
+         - cloudflared tunnel --url http://localhost:8000
+         - Set AI_API_URL to the tunnel URL
+
 6. ACCESS
    - Frontend: http://localhost:5173
    - Backend API: http://localhost:3000
    - AI API: http://localhost:8000
+
+Production (example):
+   - Frontend (Vercel): https://<project>.vercel.app
+   - Backend (Render/Railway): https://<backend>.onrender.com
+   - AI (Hugging Face): https://<your-hf-space>.hf.space
+   - (Fallback) Local AI via tunnel: https://<random>.trycloudflare.com
 
 USAGE FLOW:
 1. Open http://localhost:5173
