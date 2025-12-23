@@ -55,6 +55,7 @@ export const api = {
         'Content-Type': 'multipart/form-data',
         ...getAuthHeaders()
       },
+      timeout: 120000, // 2 minute timeout for upload (backend continues processing after response)
       onUploadProgress: (progressEvent) => {
         if (onUploadProgress && progressEvent.total) {
           const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);

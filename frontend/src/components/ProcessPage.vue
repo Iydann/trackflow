@@ -339,27 +339,44 @@ const loadProcess = async (id) => {
 }
 
 const pollProcessStatus = async (id) => {
+  let pollCount = 0
+  const startTime = Date.now()
+  
   const interval = setInterval(async () => {
     try {
+      pollCount++
+      const elapsed = Math.floor((Date.now() - startTime) / 1000)
+      
       const data = await api.getProcess(id)
       
       if (data.status === 'completed') {
         clearInterval(interval)
+        detectProgress.value = 100
         loadProcess(id)
       } else if (data.status === 'failed') {
         clearInterval(interval)
         errorMessage.value = data.error_message || 'Processing failed'
         processingStatus.value = 'Failed'
-      }
-      
-      // Simulate progress
-      if (uploadProgress.value < 100) {
-        uploadProgress.value = Math.min(100, uploadProgress.value + 5)
-      } else if (detectProgress.value < 95) {
-        detectProgress.value = Math.min(95, detectProgress.value + 3)
+        detectProgress.value = 0
+      } else {
+        // Show elapsed time for long processing
+        const mins = Math.floor(elapsed / 60)
+        const secs = elapsed % 60
+        const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`
+        processingStatus.value = `AI processing video... (${timeStr} elapsed)`
+        
+        // Keep detection progress indeterminate (no fake animation)
+        if (detectProgress.value === 0) {
+          detectProgress.value = 5
+        }
       }
     } catch (e) {
       console.error('Polling error:', e)
+      if (pollCount > 150) { // 5 minutes
+        clearInterval(interval)
+        errorMessage.value = 'Processing timeout. Video may be too long or AI service unavailable.'
+        processingStatus.value = 'Timeout'
+      }
     }
   }, 2000)
   
@@ -502,8 +519,18 @@ onMounted(async () => {
       
     } catch (error) {
       console.error('Upload error:', error)
-      errorMessage.value = error.response?.data?.error || 'Upload failed. Please try again.'
+      
+      if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+        errorMessage.value = 'Upload timeout. Please try a smaller video (max 2 minutes recommended).'
+      } else if (error.response?.status === 524) {
+        errorMessage.value = 'Processing timeout. Video is too long or AI service is slow. Try a shorter video (<30 seconds).'
+      } else {
+        errorMessage.value = error.response?.data?.error || 'Upload failed. Please try again.'
+      }
+      
       processingStatus.value = 'Failed'
+      uploadProgress.value = 0
+      detectProgress.value = 0
       
       // Clean up on error
       sessionStorage.removeItem('trackflow_upload_data')
