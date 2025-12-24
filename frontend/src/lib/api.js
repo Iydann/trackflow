@@ -39,35 +39,59 @@ export const api = {
     return response.data;
   },
 
-  async uploadAndProcess(file, lineCoordinates = null, onUploadProgress = null) {
-    // Direct upload to Railway backend (works better for large files)
-    const formData = new FormData();
-    formData.append('video', file);
+  async uploadAndProcess(file, lineCoordinates = null, onUploadProgress = null, maxRetries = 3) {
+    // Direct upload to Railway backend with retry logic
+    let lastError;
     
-    // Add line coordinates if provided
-    if (lineCoordinates) {
-      formData.append('line_x1', lineCoordinates.x1);
-      formData.append('line_y1', lineCoordinates.y1);
-      formData.append('line_x2', lineCoordinates.x2);
-      formData.append('line_y2', lineCoordinates.y2);
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const formData = new FormData();
+        formData.append('video', file);
+        
+        // Add line coordinates if provided
+        if (lineCoordinates) {
+          formData.append('line_x1', lineCoordinates.x1);
+          formData.append('line_y1', lineCoordinates.y1);
+          formData.append('line_x2', lineCoordinates.x2);
+          formData.append('line_y2', lineCoordinates.y2);
+        }
+        
+        const response = await axios.post(`${API_URL}/api/process`, formData, {
+          headers: { 
+            'Content-Type': 'multipart/form-data',
+            ...getAuthHeaders()
+          },
+          timeout: 600000, // 10 minute timeout for upload
+          maxContentLength: Infinity,
+          maxBodyLength: Infinity,
+          onUploadProgress: (progressEvent) => {
+            if (onUploadProgress && progressEvent.total) {
+              const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+              onUploadProgress(percentCompleted);
+            }
+          }
+        });
+        return response.data;
+      } catch (error) {
+        lastError = error;
+        
+        // Only retry on network/timeout errors, not validation errors
+        const isNetworkError = !error.response || error.code === 'ECONNABORTED' || error.code === 'ECONNRESET';
+        const isTimeoutError = error.code === 'ECONNABORTED' || error.message?.includes('timeout');
+        
+        if ((isNetworkError || isTimeoutError) && attempt < maxRetries) {
+          // Wait before retrying (exponential backoff: 1s, 2s, 4s)
+          const delay = Math.pow(2, attempt - 1) * 1000;
+          console.log(`[Attempt ${attempt}/${maxRetries}] Upload failed, retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        
+        throw error;
+      }
     }
     
-    const response = await axios.post(`${API_URL}/api/process`, formData, {
-      headers: { 
-        'Content-Type': 'multipart/form-data',
-        ...getAuthHeaders()
-      },
-      timeout: 600000, // 10 minute timeout for upload
-      maxContentLength: Infinity,
-      maxBodyLength: Infinity,
-      onUploadProgress: (progressEvent) => {
-        if (onUploadProgress && progressEvent.total) {
-          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-          onUploadProgress(percentCompleted);
-        }
-      }
-    });
-    return response.data;
+    throw lastError;
   },
 
   async getProcess(id) {
