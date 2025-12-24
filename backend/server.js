@@ -392,10 +392,12 @@ async function processVideoInBackground(processId, videoPath, videoName, lineCoo
 
           if (typeof statistics.duration_minutes === 'number' && !Number.isNaN(statistics.duration_minutes)) {
             updatePayload.duration = Math.round(statistics.duration_minutes * 60); // store seconds based on detected minutes
+            console.log(`[${processId}] Setting duration: ${updatePayload.duration}s from ${statistics.duration_minutes} minutes`);
           }
 
           if (statistics.video_info && statistics.video_info.width && statistics.video_info.height) {
             updatePayload.resolution = `${statistics.video_info.width}x${statistics.video_info.height}`;
+            console.log(`[${processId}] Setting resolution: ${updatePayload.resolution}`);
           }
 
           // Update process
