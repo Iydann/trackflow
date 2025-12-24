@@ -331,14 +331,24 @@ async function processVideoInBackground(processId, videoPath, videoName, lineCoo
     }
 
     // Send to AI - get task_id immediately
-    const aiResponse = await axios.post(`${AI_API_URL}/process${queryParams}`, formData, {
-      headers: formData.getHeaders(),
-      maxContentLength: Infinity,
-      maxBodyLength: Infinity,
-      timeout: 120000 // 2 minute timeout just for initial upload
-    });
+    let aiResponse;
+    try {
+      aiResponse = await axios.post(`${AI_API_URL}/process${queryParams}`, formData, {
+        headers: formData.getHeaders(),
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
+        timeout: 120000 // 2 minute timeout just for initial upload
+      });
+    } catch (aiError) {
+      console.error(`[${processId}] AI /process POST failed:`, aiError.response?.status, aiError.response?.data || aiError.message);
+      throw new Error(`Failed to send to AI: ${aiError.response?.data?.detail || aiError.message}`);
+    }
 
     const taskId = aiResponse.data.task_id;
+    if (!taskId) {
+      console.error(`[${processId}] No task_id in response:`, aiResponse.data);
+      throw new Error('AI did not return task_id');
+    }
     console.log(`[${processId}] AI task created: ${taskId}`);
     
     // Poll for task completion
