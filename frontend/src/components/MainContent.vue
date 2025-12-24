@@ -3,9 +3,6 @@
     <div class="max-w-6xl mx-auto px-6 py-12">
       <!-- Hero Section -->
       <div class="flex flex-col items-center gap-6 mb-20">
-        <div class="inline-block px-4 py-2 bg-indigo-50 text-indigo-700 rounded-full text-sm font-semibold">
-          AI-Powered Vehicle Detection
-        </div>
         <h1 class="text-5xl md:text-6xl font-extrabold text-center leading-tight">
           Analyze Traffic with<br />
           <span class="text-indigo-600">TrackFlow AI</span>

@@ -20,10 +20,10 @@
             <div class="p-4 bg-white rounded-xl shadow-sm requirements-card">
               <h2 class="text-lg font-bold mb-2">Requirements</h2>
               <ul class="list-disc pl-5 text-sm text-gray-700">
-                <li>Resolution: 1280x720 (720p)</li>
+                <li>Resolution: suggestion 1280x720 (for more accurate detection)</li>
                 <li>Formats: .mp4</li>
                 <li>Stable camera, minimal shake, clear lighting</li>
-                <li>Max file size: .. GB</li>
+                <li>Max file size: 2 GB</li>
               </ul>
             </div>
 
