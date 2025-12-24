@@ -375,6 +375,8 @@ async function processVideoInBackground(processId, videoPath, videoName, lineCoo
           };
           
           const statistics = taskStatus.statistics || {};
+          console.log(`[${processId}] Statistics received:`, JSON.stringify(statistics, null, 2));
+          
           const vehicleCount = statistics.unique_vehicles || statistics.total_vehicles || 0;
           const crossedCount = statistics.vehicles_crossed_line;
           
