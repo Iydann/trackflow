@@ -392,9 +392,24 @@ async function processVideoInBackground(processId, videoPath, videoName, lineCoo
             completed_at: new Date().toISOString()
           };
 
+          // Try multiple possible duration field names
+          let durationSeconds = null;
           if (typeof statistics.duration_minutes === 'number' && !Number.isNaN(statistics.duration_minutes)) {
-            updatePayload.duration = Math.round(statistics.duration_minutes * 60); // store seconds based on detected minutes
-            console.log(`[${processId}] Setting duration: ${updatePayload.duration}s from ${statistics.duration_minutes} minutes`);
+            durationSeconds = Math.round(statistics.duration_minutes * 60);
+            console.log(`[${processId}] Found duration_minutes: ${statistics.duration_minutes} -> ${durationSeconds}s`);
+          } else if (typeof statistics.duration === 'number' && !Number.isNaN(statistics.duration)) {
+            durationSeconds = statistics.duration;
+            console.log(`[${processId}] Found duration: ${durationSeconds}s`);
+          } else if (typeof statistics.video_info?.duration_seconds === 'number') {
+            durationSeconds = statistics.video_info.duration_seconds;
+            console.log(`[${processId}] Found video_info.duration_seconds: ${durationSeconds}s`);
+          } else {
+            console.log(`[${processId}] No duration field found. Available keys:`, Object.keys(statistics));
+          }
+
+          if (durationSeconds !== null) {
+            updatePayload.duration = durationSeconds;
+            console.log(`[${processId}] Setting duration: ${durationSeconds}s`);
           }
 
           if (statistics.video_info && statistics.video_info.width && statistics.video_info.height) {
