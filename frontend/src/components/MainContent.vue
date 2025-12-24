@@ -167,7 +167,7 @@ const learnMoreSection = ref(null)
 
 // Use public asset to avoid bundling path issues. Place demo.jpg in frontend/public/demo.jpg
 const demoBackgroundStyle = {
-  backgroundImage: "url('/demo.jpg')"
+  backgroundImage: "url('frontend\\src\\assets\\demo.jpg')"
 }
 
 const goToUpload = () => {
