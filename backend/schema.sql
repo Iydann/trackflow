@@ -17,6 +17,9 @@ CREATE TABLE IF NOT EXISTS processes (
   status TEXT NOT NULL DEFAULT 'processing',
   user_id UUID REFERENCES users(id) ON DELETE CASCADE,
   video_path TEXT, -- Supabase Storage path for cleanup
+  preview_path TEXT, -- First frame preview image path
+  resolution TEXT, -- Video resolution (e.g., "1920x1080")
+  duration FLOAT, -- Video duration in seconds
   progress INTEGER DEFAULT 0, -- Progress percentage (0-100)
   total_vehicles INTEGER DEFAULT 0,
   results JSONB,

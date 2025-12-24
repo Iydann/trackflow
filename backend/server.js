@@ -10,6 +10,10 @@ import { authMiddleware, optionalAuth } from './middleware.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -170,6 +174,45 @@ app.get('/api/me', authMiddleware, async (req, res) => {
   }
 });
 
+// Extract first frame from video as JPG
+async function extractFirstFrame(videoPath) {
+  try {
+    const previewPath = videoPath.replace(/\.[^.]+$/, '_preview.jpg');
+    
+    // Use ffmpeg to extract first frame
+    const ffmpegCmd = `ffmpeg -i "${videoPath}" -vf "select=eq(n\\,0)" -q:v 3 -frames:v 1 "${previewPath}" -y`;
+    
+    await execAsync(ffmpegCmd);
+    
+    return previewPath;
+  } catch (error) {
+    console.error('Error extracting first frame:', error);
+    return null;
+  }
+}
+
+// Get video metadata (resolution, duration)
+async function getVideoMetadata(videoPath) {
+  try {
+    const ffprobeCmd = `ffprobe -v quiet -print_format json -show_format -show_streams "${videoPath}"`;
+    const { stdout } = await execAsync(ffprobeCmd);
+    const metadata = JSON.parse(stdout);
+    
+    const videoStream = metadata.streams.find(s => s.codec_type === 'video');
+    const duration = parseFloat(metadata.format.duration);
+    
+    return {
+      resolution: videoStream ? `${videoStream.width}x${videoStream.height}` : null,
+      duration_seconds: duration,
+      width: videoStream?.width,
+      height: videoStream?.height
+    };
+  } catch (error) {
+    console.error('Error getting video metadata:', error);
+    return { resolution: null, duration_seconds: null };
+  }
+}
+
 app.post('/api/process', optionalAuth, upload.single('video'), async (req, res) => {
   try {
     // Extend timeout for large uploads
@@ -186,6 +229,12 @@ app.post('/api/process', optionalAuth, upload.single('video'), async (req, res) 
     
     console.log(`[UPLOAD] Received file: ${videoName} (${req.file.size} bytes)`);
     
+    // Extract first frame as preview
+    const previewPath = await extractFirstFrame(videoPath);
+    
+    // Get video metadata
+    const metadata = await getVideoMetadata(videoPath);
+    
     // Extract counting line coordinates from request body
     const { line_x1, line_y1, line_x2, line_y2 } = req.body;
 
@@ -193,6 +242,9 @@ app.post('/api/process', optionalAuth, upload.single('video'), async (req, res) 
       name: videoName,
       status: 'processing',
       user_id: userId,
+      preview_path: previewPath,
+      resolution: metadata.resolution,
+      duration: metadata.duration_seconds,
       created_at: new Date().toISOString()
     };
 
@@ -414,6 +466,16 @@ app.get('/api/processes/:id', optionalAuth, async (req, res) => {
     res.json(data);
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Serve preview images
+app.get('/api/preview/:filename', (req, res) => {
+  const filepath = path.join(__dirname, 'uploads', req.params.filename);
+  if (fs.existsSync(filepath)) {
+    res.sendFile(filepath);
+  } else {
+    res.status(404).json({ error: 'Preview not found' });
   }
 });
 
