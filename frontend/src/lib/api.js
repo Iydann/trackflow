@@ -1,7 +1,15 @@
 import axios from 'axios';
 import { uploadVideoToStorage } from './supabase.js';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+// Resolve backend base URL robustly:
+// - Prefer Vercel env `VITE_API_URL` if set correctly
+// - In production, default to Railway backend
+// - In dev, default to localhost
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.PROD
+    ? 'https://trackflow-production.up.railway.app'
+    : 'http://localhost:3000');
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem('trackflow_token');
