@@ -25,7 +25,7 @@ from src.utils import (
     save_results_json,
     generate_output_filename
 )
-from config.settings import OUTPUTS_DIR, MAX_VIDEO_SIZE_MB, SUPPORTED_FORMATS
+from config.settings import OUTPUTS_DIR, SUPPORTED_FORMATS
 
 
 # Initialize FastAPI app
@@ -172,14 +172,7 @@ async def upload_video(
         with open(temp_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
         
-        # Check file size
-        file_size_mb = os.path.getsize(temp_path) / (1024 * 1024)
-        if file_size_mb > MAX_VIDEO_SIZE_MB:
-            os.remove(temp_path)
-            raise HTTPException(
-                status_code=400,
-                detail=f"File too large. Max size: {MAX_VIDEO_SIZE_MB} MB"
-            )
+        # No file size limit - removed validation
         
         # Validate video
         is_valid, error_msg = validate_video_file(str(temp_path))
