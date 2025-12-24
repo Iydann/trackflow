@@ -298,7 +298,9 @@ const loadProcess = async (id) => {
       status: data.status,
       previewUrl: previewUrl,
       resolution: data.resolution || data.results?.video_info?.resolution || '-',
-      duration: data.duration || data.results?.video_info?.duration_seconds || 0,
+      duration: data.duration 
+        || data.results?.video_info?.duration_seconds 
+        || (typeof data.results?.duration_minutes === 'number' ? Math.round(data.results.duration_minutes * 60) : 0),
       startTime: data.created_at
     }
     

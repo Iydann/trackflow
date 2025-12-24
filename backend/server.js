@@ -373,15 +373,26 @@ async function processVideoInBackground(processId, videoPath, videoName, lineCoo
             console.log(`[${processId}] Vehicles crossed line: ${crossedCount}`);
           }
 
+          // Build update payload with optional fields (duration from minutes; resolution if available)
+          const updatePayload = {
+            status: 'completed',
+            total_vehicles: vehicleCount,
+            results: statistics,
+            completed_at: new Date().toISOString()
+          };
+
+          if (typeof statistics.duration_minutes === 'number' && !Number.isNaN(statistics.duration_minutes)) {
+            updatePayload.duration = Math.round(statistics.duration_minutes * 60); // store seconds based on detected minutes
+          }
+
+          if (statistics.video_info && statistics.video_info.width && statistics.video_info.height) {
+            updatePayload.resolution = `${statistics.video_info.width}x${statistics.video_info.height}`;
+          }
+
           // Update process
           const { error: processUpdateError } = await supabase
             .from('processes')
-            .update({
-              status: 'completed',
-              total_vehicles: vehicleCount,
-              results: statistics,
-              completed_at: new Date().toISOString()
-            })
+            .update(updatePayload)
             .eq('id', processId);
 
           if (processUpdateError) {

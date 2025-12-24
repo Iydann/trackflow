@@ -23,15 +23,8 @@
           </Button>
         </div>
 
-        <div class="w-full mt-12 rounded-2xl overflow-hidden border border-gray-200 shadow-lg bg-gradient-to-br from-indigo-50 to-purple-50">
-          <div class="aspect-video flex items-center justify-center">
-            <div class="text-center text-gray-500">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-24 w-24 mx-auto mb-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-              </svg>
-              <p class="text-lg font-medium">Demo Video Placeholder</p>
-            </div>
-          </div>
+        <div class="w-full mt-12 rounded-2xl overflow-hidden border border-gray-200 shadow-lg bg-white">
+          <div class="aspect-video bg-center bg-cover" style="background-image: url('/src/assets/demo.png');"></div>
         </div>
       </div>
 
@@ -153,17 +146,12 @@
       </div>
 
       <!-- CTA Section -->
-      <div class="bg-gray-50 border border-gray-200 rounded-2xl p-12 text-center">
+      <div class="bg-white rounded-2xl p-12 text-center border border-gray-200">
         <h2 class="text-3xl font-bold mb-4 text-gray-900">Ready to Get Started?</h2>
         <p class="text-lg mb-8 text-gray-600">Start analyzing your traffic footage in minutes</p>
-        <div class="flex items-center justify-center gap-4">
-          <Button @click="goToUpload" class="px-8 py-3 text-lg font-semibold" variant="default">
-            Try Now
-          </Button>
-          <Button @click="scrollToLearnMore" class="px-8 py-3 text-lg" variant="outline">
-            Learn More
-          </Button>
-        </div>
+        <Button @click="goToUpload" class="px-8 py-3 text-lg font-semibold" variant="default">
+          Try Now
+        </Button>
       </div>
     </div>
   </section>
