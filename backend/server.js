@@ -266,8 +266,10 @@ app.post('/api/process', optionalAuth, upload.single('video'), async (req, res) 
     try {
       const optionalUpdate = {
         ...(previewPath ? { preview_path: previewPath } : {}),
-        ...(metadata?.resolution ? { resolution: metadata.resolution } : {})
-        // Do NOT set duration here; defer until post-detection via results
+        ...(metadata?.resolution ? { resolution: metadata.resolution } : {}),
+        ...(typeof metadata?.duration_seconds === 'number' && !Number.isNaN(metadata.duration_seconds) 
+            ? { duration: metadata.duration_seconds } 
+            : {})
       };
       if (Object.keys(optionalUpdate).length > 0) {
         console.log(`[${processData.id}] Updating optional fields:`, optionalUpdate);
