@@ -1,7 +1,7 @@
 <template>
   <aside
     :style="{ width: sidebarWidth, transition: 'width 220ms cubic-bezier(.2,.9,.2,1)' }"
-    :class="[collapsed ? 'p-2 min-w-[64px]' : 'p-4 min-w-[280px]', 'flex flex-col bg-gray-100 border-r', 'sticky top-[72px] self-start h-[calc(100vh-72px)]']"
+    :class="[collapsed ? 'p-2 min-w-[64px]' : 'p-4 min-w-[280px]', 'flex flex-col bg-gray-100 border-r overflow-hidden', 'sticky top-[72px] self-start h-[calc(100vh-72px)]']"
   >
   <nav class="flex flex-col gap-2 mt-1">
       <Button
@@ -49,10 +49,10 @@
               <Button
                 variant="ghost"
                 @click="navigate(h.path)"
-                :class="[ 'flex-1 text-left rounded-md', collapsed ? 'py-3 justify-center' : 'px-3 py-2', isActive(h.path) ? 'bg-white font-bold' : 'hover:bg-white/60' ]"
+                :class="[ 'flex-1 text-left rounded-md overflow-hidden', collapsed ? 'py-3 justify-center' : 'px-3 py-2', isActive(h.path) ? 'bg-white font-bold' : 'hover:bg-white/60' ]"
               >
-                <component is="BarChart3Icon" class="w-5 h-5 text-gray-600" />
-                <span v-if="!collapsed" class="flex-1 text-gray-700 truncate">{{ h.name }}</span>
+                <component is="BarChart3Icon" class="w-5 h-5 text-gray-600 flex-shrink-0" />
+                <span v-if="!collapsed" class="flex-1 text-gray-700 truncate overflow-hidden text-ellipsis whitespace-nowrap max-w-[140px]">{{ h.name }}</span>
               </Button>
 
               <!-- three-dot menu (hidden when collapsed) -->
@@ -108,8 +108,7 @@ const historyItems = ref([])
 
 const navigationItems = [
   { icon: HomeIcon, label: 'Home', path: '/' },
-  { icon: UploadIcon, label: 'Upload video', path: '/upload' },
-  { icon: UserIcon, label: 'Profile', path: '/profile' }
+  { icon: UploadIcon, label: 'Upload video', path: '/upload' }
 ]
 
 const sidebarWidth = computed(() => (collapsed.value ? '64px' : '280px'))

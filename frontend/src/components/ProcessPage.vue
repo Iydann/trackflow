@@ -286,13 +286,19 @@ const loadProcess = async (id) => {
   if (!id) return
   try {
     const data = await api.getProcess(id)
+    
+    // Build preview URL if preview_path exists
+    const previewUrl = data.preview_path 
+      ? `${import.meta.env.VITE_API_URL}/api/preview/${data.preview_path.split('/').pop()}`
+      : null;
+    
     process.value = {
       id: data.id,
       name: data.name,
       status: data.status,
-      previewUrl: null,
-      resolution: data.results?.video_info?.resolution || '-',
-      duration: data.results?.video_info?.duration_seconds || 0,
+      previewUrl: previewUrl,
+      resolution: data.resolution || data.results?.video_info?.resolution || '-',
+      duration: data.duration || data.results?.video_info?.duration_seconds || 0,
       startTime: data.created_at
     }
     
