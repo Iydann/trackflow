@@ -102,7 +102,7 @@ const createChart = () => {
         },
         title: {
           display: true,
-          text: 'Grafik Kendaraan Per Menit',
+          text: 'Vehicles per Minute',
           font: {
             size: 16,
             weight: 'bold'
@@ -113,7 +113,7 @@ const createChart = () => {
           intersect: false,
           callbacks: {
             label: function(context) {
-              return `${context.dataset.label}: ${context.parsed.y} kendaraan`
+              return `${context.dataset.label}: ${context.parsed.y} vehicles`
             }
           }
         }
@@ -126,7 +126,7 @@ const createChart = () => {
           },
           title: {
             display: true,
-            text: 'Jumlah Kendaraan'
+            text: 'Vehicles'
           }
         },
         x: {

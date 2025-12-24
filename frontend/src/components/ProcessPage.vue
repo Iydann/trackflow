@@ -145,12 +145,12 @@
 
               <!-- Traffic Density Analysis (All vehicles) -->
               <div v-if="densityLevel" class="mt-6 p-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border border-indigo-200">
-                <h4 class="font-semibold text-lg mb-3">Analisis Kepadatan Lalu Lintas</h4>
+                <h4 class="font-semibold text-lg mb-3">Traffic Density Analysis</h4>
                 <div class="flex items-center gap-6">
                   <div class="flex-1">
                     <div class="mb-2">
                       <div class="flex justify-between text-sm mb-1">
-                        <span class="font-medium">Tingkat Kepadatan:</span>
+                        <span class="font-medium">Density Level:</span>
                         <span class="font-bold text-indigo-700">{{ densityLevel }}</span>
                       </div>
                       <div class="w-full bg-gray-200 rounded-full h-4">
@@ -162,24 +162,24 @@
                       </div>
                     </div>
                     <div class="text-sm text-gray-700">
-                      <strong>Rata-rata:</strong> {{ avgVehiclesPerMinute }} kendaraan/menit
+                      <strong>Avg:</strong> {{ avgVehiclesPerMinute }} vehicles/min
                     </div>
                   </div>
                   <div class="text-center">
                     <div class="text-4xl font-bold text-indigo-600">{{ densityPercentage }}%</div>
-                    <div class="text-xs text-gray-600">Kepadatan</div>
+                    <div class="text-xs text-gray-600">Density</div>
                   </div>
                 </div>
               </div>
 
               <!-- Traffic Density Analysis (Crossed vehicles only) -->
               <div v-if="crossedDensityLevel" class="mt-4 p-4 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg border border-yellow-200">
-                <h4 class="font-semibold text-lg mb-3">Kepadatan Jalur (yang melewati garis)</h4>
+                <h4 class="font-semibold text-lg mb-3">Lane Density (crossing the line)</h4>
                 <div class="flex items-center gap-6">
                   <div class="flex-1">
                     <div class="mb-2">
                       <div class="flex justify-between text-sm mb-1">
-                        <span class="font-medium">Tingkat Kepadatan:</span>
+                        <span class="font-medium">Density Level:</span>
                         <span class="font-bold text-yellow-700">{{ crossedDensityLevel }}</span>
                       </div>
                       <div class="w-full bg-gray-200 rounded-full h-4">
@@ -191,12 +191,12 @@
                       </div>
                     </div>
                     <div class="text-sm text-gray-700">
-                      <strong>Rata-rata:</strong> {{ avgCrossedPerMinute }} kendaraan/menit
+                      <strong>Avg:</strong> {{ avgCrossedPerMinute }} vehicles/min
                     </div>
                   </div>
                   <div class="text-center">
                     <div class="text-4xl font-bold text-yellow-600">{{ crossedDensityPercentage }}%</div>
-                    <div class="text-xs text-gray-600">Kepadatan Jalur</div>
+                    <div class="text-xs text-gray-600">Lane Density</div>
                   </div>
                 </div>
               </div>
@@ -209,7 +209,7 @@
               <!-- Per-Minute Table -->
               <div v-if="timeSeries && timeSeries.length > 0" class="mt-6 bg-white rounded-lg border">
                 <div class="p-4 border-b flex justify-between items-center">
-                  <h4 class="font-semibold text-lg">Data Per Menit</h4>
+                  <h4 class="font-semibold text-lg">Per-minute Data</h4>
                   <button 
                     @click="downloadCSV" 
                     class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition text-sm font-medium"
@@ -221,9 +221,9 @@
                   <table class="w-full text-sm">
                     <thead class="bg-gray-50 sticky top-0">
                       <tr>
-                        <th class="px-4 py-3 text-left font-semibold">Menit</th>
-                        <th class="px-4 py-3 text-right font-semibold">Kendaraan Terdeteksi</th>
-                        <th v-if="vehiclesCrossedLine !== null" class="px-4 py-3 text-right font-semibold">Melewati Garis</th>
+                        <th class="px-4 py-3 text-left font-semibold">Minute</th>
+                        <th class="px-4 py-3 text-right font-semibold">Vehicles Detected</th>
+                        <th v-if="vehiclesCrossedLine !== null" class="px-4 py-3 text-right font-semibold">Crossed Line</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -237,13 +237,7 @@
                 </div>
               </div>
 
-              <!-- Debug Info -->
-              <div v-if="apiResponse" class="mt-6 p-4 bg-white rounded border">
-                <details>
-                  <summary class="cursor-pointer font-medium text-gray-700">Debug Info (API Response)</summary>
-                  <pre class="mt-2 text-xs overflow-auto max-h-64 bg-gray-50 p-3 rounded">{{ JSON.stringify(apiResponse, null, 2) }}</pre>
-                </details>
-              </div>
+              <!-- Debug Info (hidden for end users) -->
             </div>
           </div>
         </div>
@@ -270,15 +264,26 @@ const vehiclesCrossedLine = ref(null)
 const vehiclesByClass = ref(null)
 const timeSeries = ref(null)
 const avgVehiclesPerMinute = ref(null)
+const avgCrossedPerMinute = ref(null)
 const densityLevel = ref(null)
 const densityPercentage = ref(null)
-const avgCrossedPerMinute = ref(null)
 const crossedDensityLevel = ref(null)
 const crossedDensityPercentage = ref(null)
 const processingStatus = ref('Initializing...')
 const errorMessage = ref(null)
 const apiResponse = ref(null)
 const isLoading = ref(true)
+
+const DENSITY_TARGET_PER_MIN = 20 // vehicles/min threshold for 100%
+
+const deriveDensityFromSeries = (series, key = 'vehicles') => {
+  if (!Array.isArray(series) || series.length === 0) return null
+  const values = series.map(item => Number(item?.[key] || 0))
+  const avg = values.reduce((a, b) => a + b, 0) / values.length
+  const pct = Math.min(100, Math.max(0, Math.round((avg / DENSITY_TARGET_PER_MIN) * 100)))
+  const level = pct >= 70 ? 'High' : pct >= 40 ? 'Moderate' : 'Low'
+  return { avg: Math.round(avg * 100) / 100, pct, level }
+}
 
 const getId = () => route.params?.id
 
@@ -320,7 +325,7 @@ const loadProcess = async (id) => {
         timeSeries.value = data.results.time_series
       }
       
-      // Extract density analysis
+      // Extract density analysis (with fallback if missing or zero)
       if (data.results.avg_vehicles_per_minute !== null && data.results.avg_vehicles_per_minute !== undefined) {
         avgVehiclesPerMinute.value = data.results.avg_vehicles_per_minute
       }
@@ -331,7 +336,7 @@ const loadProcess = async (id) => {
         densityPercentage.value = data.results.density_percentage
       }
 
-      // Extract crossed-only density analysis (if available)
+      // Crossed-only density analysis (if available)
       if (data.results.avg_crossed_per_minute !== null && data.results.avg_crossed_per_minute !== undefined) {
         avgCrossedPerMinute.value = data.results.avg_crossed_per_minute
       }
@@ -340,6 +345,31 @@ const loadProcess = async (id) => {
       }
       if (data.results.crossed_density_percentage !== null && data.results.crossed_density_percentage !== undefined) {
         crossedDensityPercentage.value = data.results.crossed_density_percentage
+      }
+
+      // Fallback density derivation from time series
+      if (timeSeries.value && timeSeries.value.length > 0) {
+        const derivedAll = deriveDensityFromSeries(timeSeries.value, 'vehicles')
+        if (derivedAll) {
+          if (avgVehiclesPerMinute.value === null) avgVehiclesPerMinute.value = derivedAll.avg
+          if (densityPercentage.value === null || densityPercentage.value === 0) densityPercentage.value = derivedAll.pct
+          if (!densityLevel.value) densityLevel.value = derivedAll.level
+        }
+
+        if (vehiclesCrossedLine.value !== null) {
+          const derivedCrossed = deriveDensityFromSeries(timeSeries.value, 'crossed')
+          if (derivedCrossed) {
+            if (avgCrossedPerMinute.value === null) avgCrossedPerMinute.value = derivedCrossed.avg
+            if (crossedDensityPercentage.value === null || crossedDensityPercentage.value === 0) crossedDensityPercentage.value = derivedCrossed.pct
+            if (!crossedDensityLevel.value) crossedDensityLevel.value = derivedCrossed.level
+          }
+        }
+      }
+
+      // If no vehicles, force density to 0/Low
+      if ((totalVehicles.value || 0) === 0) {
+        densityPercentage.value = 0
+        densityLevel.value = 'Low'
       }
       
       const typeCounts = data.results.vehicle_type_counts || {}
@@ -435,9 +465,9 @@ const downloadCSV = () => {
   const filename = `${processName.replace(/\.[^/.]+$/, '')}_per_minute.csv`
   
   // Create CSV header
-  let csv = 'Menit,Kendaraan Terdeteksi'
+  let csv = 'Minute,Vehicles Detected'
   if (vehiclesCrossedLine.value !== null) {
-    csv += ',Melewati Garis'
+    csv += ',Crossed Line'
   }
   csv += '\n'
   
@@ -451,18 +481,18 @@ const downloadCSV = () => {
   })
   
   // Add summary
-  csv += '\nRingkasan\n'
-  csv += `Total Kendaraan,${totalVehicles.value}\n`
+  csv += '\nSummary\n'
+  csv += `Total Vehicles,${totalVehicles.value}\n`
   if (vehiclesCrossedLine.value !== null) {
-    csv += `Total Melewati Garis,${vehiclesCrossedLine.value}\n`
+    csv += `Total Crossed Line,${vehiclesCrossedLine.value}\n`
   }
-  csv += `Rata-rata per Menit (Semua),${avgVehiclesPerMinute.value}\n`
-  csv += `Tingkat Kepadatan (Semua),${densityLevel.value}\n`
-  csv += `Persentase Kepadatan (Semua),${densityPercentage.value}%\n`
+  csv += `Avg per Minute (All),${avgVehiclesPerMinute.value}\n`
+  csv += `Density Level (All),${densityLevel.value}\n`
+  csv += `Density Percent (All),${densityPercentage.value}%\n`
   if (avgCrossedPerMinute.value !== null && crossedDensityLevel.value !== null && crossedDensityPercentage.value !== null) {
-    csv += `Rata-rata per Menit (Melewati Garis),${avgCrossedPerMinute.value}\n`
-    csv += `Tingkat Kepadatan (Melewati Garis),${crossedDensityLevel.value}\n`
-    csv += `Persentase Kepadatan (Melewati Garis),${crossedDensityPercentage.value}%\n`
+    csv += `Avg per Minute (Crossed),${avgCrossedPerMinute.value}\n`
+    csv += `Density Level (Crossed),${crossedDensityLevel.value}\n`
+    csv += `Density Percent (Crossed),${crossedDensityPercentage.value}%\n`
   }
   
   // Create download link

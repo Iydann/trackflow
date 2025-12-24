@@ -71,10 +71,10 @@
 
             <!-- dropdown menu -->
             <div v-if="openHistoryMenuId === h.id" ref="menuRef" class="absolute right-0 mt-1 z-50 w-48 bg-white border rounded-md shadow-lg overflow-hidden sidebar-history-menu">
-              <button @click="shareHistory(h)" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Bagikan</button>
-              <button @click="downloadHistoryCSV(h)" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Unduh CSV</button>
-              <div class="border-t" />
-              <button @click="deleteHistory(h)" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">Hapus</button>
+                <button @click="shareHistory(h)" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Share</button>
+                <button @click="downloadHistoryCSV(h)" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Download CSV</button>
+                <div class="border-t" />
+                <button @click="deleteHistory(h)" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">Delete</button>
             </div>
           </div>
         </div>
