@@ -376,13 +376,18 @@ const pollProcessStatus = async (id) => {
         processingStatus.value = 'Failed'
         detectProgress.value = 0
       } else {
+        // Update detection progress from server
+        if (data.progress !== null && data.progress !== undefined) {
+          detectProgress.value = data.progress
+        }
+        
         // Show elapsed time for long processing
         const mins = Math.floor(elapsed / 60)
         const secs = elapsed % 60
         const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`
-        processingStatus.value = `AI processing video... (${timeStr} elapsed)`
+        processingStatus.value = `AI processing video... (${timeStr} elapsed, ${data.progress || 0}% complete)`
         
-        // Keep detection progress indeterminate (no fake animation)
+        // Keep detection progress at least 5% if no progress reported
         if (detectProgress.value === 0) {
           detectProgress.value = 5
         }

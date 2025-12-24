@@ -15,6 +15,6 @@ FastAPI server for vehicle detection and tracking using YOLOv8.
 ## Endpoints
 
 - `GET /` - API info
-- `GET /health` - Health check  
+- `GET /health` - Health check
 - `POST /process` - Process video for vehicle tracking
 - `GET /docs` - API documentation (Swagger UI)

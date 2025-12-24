@@ -279,6 +279,17 @@ async function processVideoInBackground(processId, videoPath, videoName, lineCoo
         
         const taskStatus = statusResponse.data;
         
+        // Update progress in database if available
+        if (taskStatus.progress !== undefined && taskStatus.progress !== null) {
+          await supabase
+            .from('processes')
+            .update({ 
+              progress: taskStatus.progress,
+              status: 'processing'
+            })
+            .eq('id', processId);
+        }
+        
         if (taskStatus.status === 'completed') {
           console.log(`[${processId}] AI processing complete after ${attempts} seconds!`);
           

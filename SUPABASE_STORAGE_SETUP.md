@@ -1,9 +1,11 @@
 # Supabase Storage Setup for TrackFlow
 
 ## Why Supabase Storage?
+
 To bypass Railway's 10-minute HTTP request timeout, videos are uploaded directly to Supabase Storage from the browser. This allows:
+
 - **Unlimited upload time** - No Railway timeout during upload
-- **Support for large videos** - Up to 2GB+ 
+- **Support for large videos** - Up to 2GB+
 - **Better user experience** - Real progress tracking
 - **Auto-cleanup** - Videos deleted after processing (no storage cost)
 
@@ -23,25 +25,31 @@ To bypass Railway's 10-minute HTTP request timeout, videos are uploaded directly
 After creating the bucket, set these policies:
 
 **Policy 1: Allow authenticated uploads**
+
 - Policy name: `Allow authenticated uploads`
 - Allowed operation: `INSERT`
 - Policy definition:
+
 ```sql
 (auth.role() = 'authenticated')
 ```
 
 **Policy 2: Allow public read access**
-- Policy name: `Allow public read`  
+
+- Policy name: `Allow public read`
 - Allowed operation: `SELECT`
 - Policy definition:
+
 ```sql
 true
 ```
 
 **Policy 3: Allow service role delete**
+
 - Policy name: `Allow service role delete`
 - Allowed operation: `DELETE`
 - Policy definition:
+
 ```sql
 (auth.role() = 'service_role')
 ```
@@ -49,6 +57,7 @@ true
 ### 3. Update Environment Variables
 
 **Frontend (.env in Vercel)**
+
 ```
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key
@@ -56,6 +65,7 @@ VITE_API_URL=https://trackflow-production.up.railway.app
 ```
 
 **Backend (Railway environment variables - already set)**
+
 ```
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_KEY=your-service-role-key
@@ -67,13 +77,14 @@ AI_API_URL=https://your-tunnel-url.trycloudflare.com
 Run this SQL in Supabase SQL Editor to add video_path column:
 
 ```sql
-ALTER TABLE processes 
+ALTER TABLE processes
 ADD COLUMN IF NOT EXISTS video_path TEXT;
 ```
 
 ### 5. Deploy
 
 **Frontend:**
+
 ```bash
 cd frontend
 npm install
@@ -81,6 +92,7 @@ npm install
 ```
 
 **Backend:**
+
 ```bash
 # Push to GitHub - Railway auto-deploys
 ```
@@ -88,12 +100,14 @@ npm install
 ## How It Works
 
 ### Old Flow (Limited by Railway timeout):
+
 ```
 Browser → [Upload 10min max] → Railway → AI
           ^^^ Timeout for large videos
 ```
 
 ### New Flow (No timeout):
+
 ```
 Browser → [Upload unlimited] → Supabase Storage
                                     ↓
@@ -122,16 +136,20 @@ Railway → [Auto-delete from Supabase]
 ## Troubleshooting
 
 **"Missing Supabase environment variables"**
+
 - Make sure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set in Vercel
 
 **"Upload failed: new row violates row-level security policy"**
+
 - Check that `videos` bucket is public
 - Verify upload policy allows authenticated users
 
 **"AI cannot download video"**
+
 - Ensure bucket is **public** (not private)
 - Check public read policy is enabled
 
 **"Video not deleted after processing"**
+
 - Check backend logs for deletion errors
 - Verify service role key has delete permissions

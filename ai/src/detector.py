@@ -143,7 +143,8 @@ class VehicleDetector:
         show_progress: bool = True,
         frame_skip: int = 1,
         show_preview: bool = False,
-        imgsz: int = 640
+        imgsz: int = 640,
+        progress_callback: Optional[callable] = None
     ) -> Dict[str, Any]:
         """
         Detect vehicles in video
@@ -154,6 +155,7 @@ class VehicleDetector:
             show_progress: Show progress bar
             frame_skip: Process every Nth frame (1 = all frames)
             show_preview: Show real-time preview window
+            progress_callback: Optional callback(current_frame, total_frames) for progress updates
             
         Returns:
             Dictionary with detection statistics and results
@@ -199,6 +201,10 @@ class VehicleDetector:
                 ret, frame = cap.read()
                 if not ret:
                     break
+                
+                # Call progress callback
+                if progress_callback:
+                    progress_callback(frame_idx, total_frames)
                 
                 # Skip frames if needed
                 if frame_idx % frame_skip != 0:

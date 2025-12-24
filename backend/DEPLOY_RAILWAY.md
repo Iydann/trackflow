@@ -3,6 +3,7 @@
 ## Persiapan
 
 Backend sudah siap untuk production dengan:
+
 - ✅ `package.json` dengan script `start`
 - ✅ Environment variables via `.env`
 - ✅ Support Supabase
@@ -12,18 +13,22 @@ Backend sudah siap untuk production dengan:
 ## Langkah Deploy ke Railway
 
 ### 1. Buka Railway
+
 https://railway.app
 
 ### 2. Sign Up / Login
+
 - Login dengan GitHub (recommended)
 
 ### 3. Create New Project
+
 - Klik "New Project"
 - Pilih "Deploy from GitHub repo"
 - Pilih repository `trackflow` (atau folder `backend` jika bisa)
 - Atau klik "Empty Project" lalu "Deploy from GitHub"
 
 ### 4. Configure Build
+
 Railway akan auto-detect Node.js. Pastikan settings:
 
 **Root Directory:** `backend` (jika deploy full repo)
@@ -31,6 +36,7 @@ Railway akan auto-detect Node.js. Pastikan settings:
 **Start Command:** `npm start`
 
 Atau tambahkan file `railway.json` di folder backend:
+
 ```json
 {
   "build": {
@@ -46,6 +52,7 @@ Atau tambahkan file `railway.json` di folder backend:
 ```
 
 ### 5. Environment Variables
+
 Klik tab "Variables" dan tambahkan:
 
 ```
@@ -58,32 +65,40 @@ NODE_ENV=production
 ```
 
 **Cara generate JWT_SECRET:**
+
 ```powershell
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
 ### 6. Deploy
+
 Klik "Deploy" dan tunggu build (2-3 menit)
 
 ### 7. Get Public URL
+
 Setelah deploy sukses:
+
 - Railway akan generate URL: `https://<project-name>.up.railway.app`
 - Copy URL ini untuk frontend
 
 ## Update Frontend
 
 Di Vercel project, update Environment Variable:
+
 ```
 VITE_API_URL=https://<backend-url>.up.railway.app
 ```
+
 Lalu redeploy frontend.
 
 ## Alternatif: Deploy ke Render
 
 ### 1. Buka Render
+
 https://render.com
 
 ### 2. Create Web Service
+
 - New → Web Service
 - Connect GitHub repo
 - Root Directory: `backend`
@@ -92,9 +107,11 @@ https://render.com
 - Start Command: `npm start`
 
 ### 3. Environment Variables
+
 Tambahkan sama seperti Railway di atas.
 
 ### 4. Deploy
+
 Free tier: `https://<service-name>.onrender.com`
 
 **Note:** Render free tier akan sleep setelah 15 menit tidak ada traffic, butuh ~30 detik untuk wake up.
@@ -102,6 +119,7 @@ Free tier: `https://<service-name>.onrender.com`
 ## Testing Backend
 
 Setelah deploy, test endpoint:
+
 ```
 https://<backend-url>/api/health
 ```
@@ -109,12 +127,15 @@ https://<backend-url>/api/health
 ## Troubleshooting
 
 **Error: Cannot find module**
+
 - Pastikan `type: "module"` ada di package.json
 - Import statement harus pakai `.js` extension
 
 **Upload folder issue**
+
 - Railway/Render ephemeral filesystem
 - Pertimbangkan pakai Supabase Storage untuk video uploads
 
 **CORS errors**
+
 - Pastikan frontend URL di-whitelist di CORS settings (atau tetap `*` untuk testing)

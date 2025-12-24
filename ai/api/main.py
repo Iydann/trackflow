@@ -284,6 +284,12 @@ def process_video_background(
 ):
     """Background task to process video"""
     try:
+        # Progress callback to update task status
+        def update_progress(current_frame: int, total_frames: int):
+            if total_frames > 0:
+                progress = int((current_frame / total_frames) * 100)
+                tasks[task_id]["progress"] = progress
+        
         # Generate output path
         output_path = None
         if save_video:
@@ -309,7 +315,8 @@ def process_video_background(
                 output_path=output_path,
                 counting_line=counting_line,
                 show_progress=False,
-                draw_trails=draw_trails
+                draw_trails=draw_trails,
+                progress_callback=update_progress
             )
             
         elif mode == "detect":
@@ -320,7 +327,8 @@ def process_video_background(
             results = detector_instance.detect_video(
                 video_path=temp_path,
                 output_path=output_path,
-                show_progress=False
+                show_progress=False,
+                progress_callback=update_progress
             )
         
         # Save results as JSON

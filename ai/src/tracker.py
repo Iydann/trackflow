@@ -120,7 +120,8 @@ class VehicleTracker:
         draw_trails: bool = True,
         max_trail_length: int = 30,
         show_preview: bool = False,
-        imgsz: int = 640
+        imgsz: int = 640,
+        progress_callback: Optional[callable] = None
     ) -> Dict[str, Any]:
         """
         Track vehicles in video with unique IDs and optional line crossing count
@@ -133,6 +134,7 @@ class VehicleTracker:
             draw_trails: Draw vehicle movement trails
             max_trail_length: Maximum trail points to display
             show_preview: Show real-time preview window
+            progress_callback: Optional callback(current_frame, total_frames) for progress updates
             
         Returns:
             Dictionary with tracking results and statistics
@@ -191,6 +193,10 @@ class VehicleTracker:
                 ret, frame = cap.read()
                 if not ret:
                     break
+                
+                # Call progress callback
+                if progress_callback:
+                    progress_callback(frame_idx, total_frames)
                 
                 # Run tracking
                 results = self.model.track(

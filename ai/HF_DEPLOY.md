@@ -31,11 +31,11 @@ Tunggu build selesai di https://huggingface.co/spaces/lydain/trackflow-ai
 3. Buat file dengan path lengkap (otomatis buat folder):
    - `Dockerfile` - copy dari Dockerfile.hf
    - `requirements.txt` - copy isi requirements.txt
-   - `api/__init__.py` - copy isi api/__init__.py
+   - `api/__init__.py` - copy isi api/**init**.py
    - `api/main.py` - copy isi api/main.py
-   - `config/__init__.py` - copy isi config/__init__.py
+   - `config/__init__.py` - copy isi config/**init**.py
    - `config/settings.py` - copy isi config/settings.py
-   - `src/__init__.py` - copy isi src/__init__.py
+   - `src/__init__.py` - copy isi src/**init**.py
    - `src/detector.py` - copy isi src/detector.py
    - `src/tracker.py` - copy isi src/tracker.py
    - `src/utils.py` - copy isi src/utils.py
@@ -53,16 +53,19 @@ Tunggu build selesai di https://huggingface.co/spaces/lydain/trackflow-ai
 ## Test Endpoint
 
 Setelah running, test:
+
 ```
 https://lydain-trackflow-ai.hf.space/health
 ```
 
 Endpoint AI Anda:
+
 ```
 https://lydain-trackflow-ai.hf.space/process
 ```
 
 Set di backend .env:
+
 ```
 AI_API_URL=https://lydain-trackflow-ai.hf.space
 ```
