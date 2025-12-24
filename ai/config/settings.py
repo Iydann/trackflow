@@ -59,8 +59,8 @@ VEHICLE_NAMES = {
     7: "Truk"
 }
 
-# Processing settings
-MAX_VIDEO_SIZE_MB = int(os.getenv("MAX_VIDEO_SIZE_MB", "500"))
+# Processing settings (raise limit to 2GB by default)
+MAX_VIDEO_SIZE_MB = int(os.getenv("MAX_VIDEO_SIZE_MB", "2000"))
 SUPPORTED_FORMATS = os.getenv("SUPPORTED_FORMATS", "mp4,avi,mov,mkv").split(",")
 FRAME_SKIP = int(os.getenv("FRAME_SKIP", "1"))
 SAVE_FRAMES = os.getenv("SAVE_FRAMES", "false").lower() == "true"
