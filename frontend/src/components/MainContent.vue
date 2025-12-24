@@ -153,12 +153,17 @@
       </div>
 
       <!-- CTA Section -->
-      <div class="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-12 text-center text-white">
-        <h2 class="text-3xl font-bold mb-4">Ready to Get Started?</h2>
-        <p class="text-lg mb-8 opacity-90">Start analyzing your traffic footage in minutes</p>
-        <Button @click="goToUpload" class="bg-white text-indigo-600 hover:bg-gray-100 px-8 py-3 text-lg font-semibold">
-          Upload Your First Video
-        </Button>
+      <div class="bg-gray-50 border border-gray-200 rounded-2xl p-12 text-center">
+        <h2 class="text-3xl font-bold mb-4 text-gray-900">Ready to Get Started?</h2>
+        <p class="text-lg mb-8 text-gray-600">Start analyzing your traffic footage in minutes</p>
+        <div class="flex items-center justify-center gap-4">
+          <Button @click="goToUpload" class="px-8 py-3 text-lg font-semibold" variant="default">
+            Try Now
+          </Button>
+          <Button @click="scrollToLearnMore" class="px-8 py-3 text-lg" variant="outline">
+            Learn More
+          </Button>
+        </div>
       </div>
     </div>
   </section>

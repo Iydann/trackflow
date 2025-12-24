@@ -232,19 +232,18 @@ app.post('/api/process', optionalAuth, upload.single('video'), async (req, res) 
     // Extract first frame as preview
     const previewPath = await extractFirstFrame(videoPath);
     
-    // Get video metadata
+    // Get video metadata (best-effort; used for UI only)
     const metadata = await getVideoMetadata(videoPath);
     
     // Extract counting line coordinates from request body
     const { line_x1, line_y1, line_x2, line_y2 } = req.body;
 
+    // Insert minimal record first to avoid schema mismatch errors
+    // (Some deployments may not have optional columns like duration/resolution yet.)
     const processRecord = {
       name: videoName,
       status: 'processing',
       user_id: userId,
-      preview_path: previewPath,
-      resolution: metadata.resolution,
-      duration: metadata.duration_seconds,
       created_at: new Date().toISOString()
     };
 
@@ -256,6 +255,23 @@ app.post('/api/process', optionalAuth, upload.single('video'), async (req, res) 
 
     if (insertError) {
       throw insertError;
+    }
+
+    // Best-effort: update optional fields if columns exist. Ignore errors if missing.
+    try {
+      const optionalUpdate = {
+        ...(previewPath ? { preview_path: previewPath } : {}),
+        ...(metadata?.resolution ? { resolution: metadata.resolution } : {})
+        // Do NOT set duration here; defer until post-detection via results
+      };
+      if (Object.keys(optionalUpdate).length > 0) {
+        await supabase
+          .from('processes')
+          .update(optionalUpdate)
+          .eq('id', processData.id);
+      }
+    } catch (optionalErr) {
+      console.warn('[process optional update] Skipping optional fields:', optionalErr?.message || optionalErr);
     }
 
     res.json({
