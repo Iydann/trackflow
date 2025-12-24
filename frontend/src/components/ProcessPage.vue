@@ -287,9 +287,9 @@ const loadProcess = async (id) => {
   try {
     const data = await api.getProcess(id)
     
-    // Build preview URL if preview_path exists
+    // Build preview URL if preview_path exists (already just filename from backend)
     const previewUrl = data.preview_path 
-      ? `${import.meta.env.VITE_API_URL}/api/preview/${data.preview_path.split('/').pop()}`
+      ? `${import.meta.env.VITE_API_URL}/api/preview/${data.preview_path}`
       : null;
     
     process.value = {

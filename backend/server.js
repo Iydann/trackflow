@@ -183,8 +183,10 @@ async function extractFirstFrame(videoPath) {
     const ffmpegCmd = `ffmpeg -i "${videoPath}" -vf "select=eq(n\\,0)" -q:v 3 -frames:v 1 "${previewPath}" -y`;
     
     await execAsync(ffmpegCmd);
+    console.log(`[PREVIEW] Extracted to: ${previewPath}`);
     
-    return previewPath;
+    // Return only filename for database storage
+    return path.basename(previewPath);
   } catch (error) {
     console.error('Error extracting first frame:', error);
     return null;
@@ -201,12 +203,15 @@ async function getVideoMetadata(videoPath) {
     const videoStream = metadata.streams.find(s => s.codec_type === 'video');
     const duration = parseFloat(metadata.format.duration);
     
-    return {
+    const result = {
       resolution: videoStream ? `${videoStream.width}x${videoStream.height}` : null,
       duration_seconds: duration,
       width: videoStream?.width,
       height: videoStream?.height
     };
+    
+    console.log(`[METADATA] Resolution: ${result.resolution}, Duration: ${result.duration_seconds}s`);
+    return result;
   } catch (error) {
     console.error('Error getting video metadata:', error);
     return { resolution: null, duration_seconds: null };
@@ -265,10 +270,14 @@ app.post('/api/process', optionalAuth, upload.single('video'), async (req, res) 
         // Do NOT set duration here; defer until post-detection via results
       };
       if (Object.keys(optionalUpdate).length > 0) {
-        await supabase
+        console.log(`[${processData.id}] Updating optional fields:`, optionalUpdate);
+        const { error: updateErr } = await supabase
           .from('processes')
           .update(optionalUpdate)
           .eq('id', processData.id);
+        if (updateErr) {
+          console.warn(`[${processData.id}] Optional update error:`, updateErr.message);
+        }
       }
     } catch (optionalErr) {
       console.warn('[process optional update] Skipping optional fields:', optionalErr?.message || optionalErr);
