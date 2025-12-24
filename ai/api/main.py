@@ -8,6 +8,7 @@ from datetime import datetime
 import shutil
 import uuid
 import asyncio
+import logging
 
 from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks
 from fastapi.responses import JSONResponse, FileResponse
@@ -27,6 +28,9 @@ from src.utils import (
 )
 from config.settings import OUTPUTS_DIR, SUPPORTED_FORMATS
 
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -53,6 +57,26 @@ tracker = None
 
 # Global tasks storage (in-memory for now)
 tasks: Dict[str, Dict[str, Any]] = {}
+
+
+# Startup event to pre-load models
+@app.on_event("startup")
+async def startup_event():
+    """Pre-load models on startup to avoid delays on first upload"""
+    global detector, tracker
+    try:
+        logger.info("Pre-loading detector model on startup...")
+        detector = VehicleDetector()
+        logger.info("Detector model loaded successfully")
+    except Exception as e:
+        logger.error(f"Failed to pre-load detector: {e}")
+    
+    try:
+        logger.info("Pre-loading tracker model on startup...")
+        tracker = VehicleTracker()
+        logger.info("Tracker model loaded successfully")
+    except Exception as e:
+        logger.error(f"Failed to pre-load tracker: {e}")
 
 
 # Request/Response models

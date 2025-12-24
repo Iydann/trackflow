@@ -337,7 +337,9 @@ async function processVideoInBackground(processId, videoPath, videoName, lineCoo
         headers: formData.getHeaders(),
         maxContentLength: Infinity,
         maxBodyLength: Infinity,
-        timeout: 120000 // 2 minute timeout just for initial upload
+        // Large files (e.g., 500MB+) can take several minutes to upload to AI
+        // Disable axios timeout for this request so it can complete via ngrok
+        timeout: 0
       });
     } catch (aiError) {
       console.error(`[${processId}] AI /process POST failed:`, aiError.response?.status, aiError.response?.data || aiError.message);
@@ -350,10 +352,21 @@ async function processVideoInBackground(processId, videoPath, videoName, lineCoo
       throw new Error('AI did not return task_id');
     }
     console.log(`[${processId}] AI task created: ${taskId}`);
+
+    // Nudge progress to 1% so user sees movement on long videos
+    try {
+      await supabase
+        .from('processes')
+        .update({ status: 'processing', progress: 1 })
+        .eq('id', processId);
+    } catch (e) {
+      console.warn(`[${processId}] Unable to set initial progress to 1%:`, e?.message || e);
+    }
     
     // Poll for task completion
     let attempts = 0;
-    const maxAttempts = 1800; // 30 minutes max (poll every second)
+    // Allow up to 2 hours processing time for long videos (poll every second)
+    const maxAttempts = 7200;
     
     while (attempts < maxAttempts) {
       await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
