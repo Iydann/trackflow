@@ -165,9 +165,9 @@ import Button from './Button.vue'
 const router = useRouter()
 const learnMoreSection = ref(null)
 
-// Use public asset to avoid bundling path issues. Place demo.png in frontend/public/demo.png
+// Use public asset to avoid bundling path issues. Place demo.jpg in frontend/public/demo.jpg
 const demoBackgroundStyle = {
-  backgroundImage: "url('/demo.png')"
+  backgroundImage: "url('/demo.jpg')"
 }
 
 const goToUpload = () => {
