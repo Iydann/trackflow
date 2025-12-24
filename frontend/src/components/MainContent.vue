@@ -24,7 +24,7 @@
         </div>
 
         <div class="w-full mt-12 rounded-2xl overflow-hidden border border-gray-200 shadow-lg bg-white">
-          <div class="aspect-video bg-center bg-cover" :style="demoBackgroundStyle"></div>
+          <div class="aspect-video bg-center bg-cover" style="background-image: url('/demo.jpg');"></div>
         </div>
       </div>
 
@@ -164,11 +164,6 @@ import Button from './Button.vue'
 
 const router = useRouter()
 const learnMoreSection = ref(null)
-
-// Use public asset to avoid bundling path issues. Place demo.jpg in frontend/public/demo.jpg
-const demoBackgroundStyle = {
-  backgroundImage: "url('frontend\\src\\assets\\demo.jpg')"
-}
 
 const goToUpload = () => {
   router.push('/upload')
