@@ -427,14 +427,28 @@ async function processVideoInBackground(processId, videoPath, videoName, lineCoo
             console.log(`[${processId}] Setting resolution: ${updatePayload.resolution}`);
           }
 
-          // Update process
-          const { error: processUpdateError } = await supabase
-            .from('processes')
-            .update(updatePayload)
-            .eq('id', processId);
+          // Update process: try with results, then fallback without if column missing
+          let processUpdateError = null;
+          try {
+            const { error } = await supabase
+              .from('processes')
+              .update(updatePayload)
+              .eq('id', processId);
+            processUpdateError = error || null;
+          } catch (e) {
+            processUpdateError = e;
+          }
 
           if (processUpdateError) {
-            console.error(`[${processId}] Error updating process:`, processUpdateError);
+            console.warn(`[${processId}] Update with results failed, retrying without results:`, processUpdateError?.message || processUpdateError);
+            const { results, ...fallbackPayload } = updatePayload;
+            const { error: fallbackErr } = await supabase
+              .from('processes')
+              .update(fallbackPayload)
+              .eq('id', processId);
+            if (fallbackErr) {
+              console.error(`[${processId}] Fallback update error:`, fallbackErr);
+            }
           }
 
           // Insert into history
